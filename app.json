@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "El Rey Deliveries",
+    "slug": "el-rey-deliveries",
+    "scheme": "elreydistribuidora",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
