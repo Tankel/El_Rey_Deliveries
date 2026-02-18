@@ -1,10 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native';
+﻿import { StyleSheet, Text, View } from 'react-native';
+import { es } from '@/i18n/es';
 
 export default function ClientesScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Clientes</Text>
-      <Text>Lista y detalle de clientes (pendiente).</Text>
+      <Text style={styles.title}>{es.clients.title}</Text>
+      <Text>{es.clients.pending}</Text>
     </View>
   );
 }

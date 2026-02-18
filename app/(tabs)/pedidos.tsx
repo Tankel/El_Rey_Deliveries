@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { usePedidos } from '@/features/pedidos/hooks/usePedidos';
+import { es } from '@/i18n/es';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 
 export default function PedidosScreen() {
@@ -12,9 +13,9 @@ export default function PedidosScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Pedidos</Text>
+      <Text style={styles.title}>{es.orders.title}</Text>
       <PrimaryButton
-        label="Crear pedido demo"
+        label={es.orders.demoCreate}
         onPress={() =>
           createPedido({
             clienteNombre: 'Cliente Demo',
@@ -22,7 +23,7 @@ export default function PedidosScreen() {
           })
         }
       />
-      <Text>{isLoading ? 'Cargando...' : `${pedidos.length} pedidos`}</Text>
+      <Text>{isLoading ? es.common.loading : es.orders.count(pedidos.length)}</Text>
       <FlatList
         data={pedidos}
         keyExtractor={(item) => item.id}
@@ -30,7 +31,7 @@ export default function PedidosScreen() {
           <View style={styles.item}>
             <Text style={styles.itemTitle}>{item.clienteNombre}</Text>
             <Text>
-              ${item.total} · {item.status}
+              ${item.total} | {item.status}
             </Text>
           </View>
         )}

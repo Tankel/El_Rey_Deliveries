@@ -1,10 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native';
+﻿import { StyleSheet, Text, View } from 'react-native';
+import { es } from '@/i18n/es';
 
 export default function InventarioScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Inventario</Text>
-      <Text>Entradas/salidas y validación de stock (pendiente).</Text>
+      <Text style={styles.title}>{es.inventory.title}</Text>
+      <Text>{es.inventory.pending}</Text>
     </View>
   );
 }

@@ -1,9 +1,10 @@
-import { StyleSheet, Text, View } from 'react-native';
+﻿import { StyleSheet, Text, View } from 'react-native';
+import { es } from '@/i18n/es';
 
 export default function RecoverPasswordScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Recuperar contraseña</Text>
+      <Text style={styles.title}>{es.auth.recoverPassword}</Text>
       <Text>Pantalla mock para fase 1 (MVP).</Text>
     </View>
   );

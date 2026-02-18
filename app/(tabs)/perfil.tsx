@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+﻿import { StyleSheet, Text, View } from 'react-native';
+import { es } from '@/i18n/es';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useAuth } from '@/state/AuthContext';
 
@@ -7,9 +8,11 @@ export default function PerfilScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Perfil</Text>
-      <Text>Usuario: {user?.username ?? 'Sin sesión'}</Text>
-      <PrimaryButton label="Cerrar sesión" onPress={signOut} />
+      <Text style={styles.title}>{es.profile.title}</Text>
+      <Text>
+        {es.profile.user}: {user?.username ?? es.profile.noSession}
+      </Text>
+      <PrimaryButton label={es.common.logout} onPress={signOut} />
     </View>
   );
 }
