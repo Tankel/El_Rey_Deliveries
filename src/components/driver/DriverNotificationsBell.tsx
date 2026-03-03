@@ -1,34 +1,29 @@
 import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Animated,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { es } from '@/i18n/es';
+import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
 
-export function AdminNotificationsBell() {
+export function DriverNotificationsBell() {
   const router = useRouter();
-  const { notifications, unreadNotificationsCount, markNotificationRead } = useOrders();
+  const { user } = useAuth();
+  const { notifications, markNotificationRead } = useOrders();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const panelX = useRef(new Animated.Value(360)).current;
 
-  const orderedNotifications = useMemo(
+  const driverNotifications = useMemo(
     () =>
       notifications
-        .filter((item) => item.audience === 'ADMIN')
-        .sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      ),
-    [notifications],
+        .filter((item) => item.audience === 'DRIVER' && item.targetUserId === user?.id)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [notifications, user?.id],
   );
+
+  const unreadCount = driverNotifications.filter((item) => !item.read).length;
 
   const openPanel = () => {
     setOpen(true);
@@ -44,18 +39,16 @@ export function AdminNotificationsBell() {
       toValue: 360,
       duration: 200,
       useNativeDriver: true,
-    }).start(() => {
-      setOpen(false);
-    });
+    }).start(() => setOpen(false));
   };
 
   return (
     <>
       <Pressable style={styles.bellButton} onPress={openPanel}>
         <Ionicons name="notifications-outline" size={24} color="#111827" />
-        {unreadNotificationsCount > 0 ? (
+        {unreadCount > 0 ? (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{unreadNotificationsCount}</Text>
+            <Text style={styles.badgeText}>{unreadCount}</Text>
           </View>
         ) : null}
       </Pressable>
@@ -74,24 +67,37 @@ export function AdminNotificationsBell() {
             ]}
           >
             <View style={styles.panelHeader}>
-              <Text style={styles.panelTitle}>Pedidos nuevos</Text>
+              <Text style={styles.panelTitle}>{es.driver.notificationsTitle}</Text>
               <Pressable onPress={closePanel}>
                 <Ionicons name="close" size={22} color="#111827" />
               </Pressable>
             </View>
 
+            {unreadCount > 0 ? (
+              <Pressable
+                style={styles.markAllButton}
+                onPress={() =>
+                  driverNotifications
+                    .filter((item) => !item.read)
+                    .forEach((item) => markNotificationRead(item.id))
+                }
+              >
+                <Text style={styles.markAllButtonText}>{es.driver.markAllAsRead}</Text>
+              </Pressable>
+            ) : null}
+
             <ScrollView contentContainerStyle={styles.panelBody}>
-              {orderedNotifications.length === 0 ? (
-                <Text style={styles.emptyText}>Sin notificaciones.</Text>
+              {driverNotifications.length === 0 ? (
+                <Text style={styles.emptyText}>{es.driver.noNotifications}</Text>
               ) : (
-                orderedNotifications.map((item) => (
+                driverNotifications.map((item) => (
                   <Pressable
                     key={item.id}
                     style={[styles.notificationItem, !item.read && styles.unreadItem]}
                     onPress={() => {
                       markNotificationRead(item.id);
                       closePanel();
-                      router.push(`/(admin)/orders/${item.orderId}`);
+                      router.push(`/(driver)/deliveries/${item.orderId}`);
                     }}
                   >
                     <Text style={styles.notificationText}>{item.message}</Text>
@@ -152,9 +158,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderLeftWidth: 1,
     borderLeftColor: '#e5e7eb',
-    paddingTop: 14,
     paddingHorizontal: 12,
-    paddingBottom: 20,
     gap: 10,
   },
   panelHeader: {
@@ -166,6 +170,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
+  },
+  markAllButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+    borderRadius: 999,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  markAllButtonText: {
+    color: '#1e3a8a',
+    fontWeight: '700',
+    fontSize: 12,
   },
   panelBody: {
     gap: 8,

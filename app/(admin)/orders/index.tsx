@@ -138,7 +138,7 @@ export default function AdminOrdersScreen() {
                   <Pressable
                     style={[styles.actionButton, styles.cancelButton]}
                     onPress={() => {
-                      const result = updateStatus(item.id, 'CANCELADO');
+                      const result = updateStatus(item.id, 'CANCELADO', { actorRole: 'ADMIN' });
                       showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
                     }}
                   >

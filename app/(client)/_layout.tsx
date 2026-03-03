@@ -34,7 +34,7 @@ export default function ClientLayout() {
           }}
         />
         <Tabs.Screen
-          name="orders/index"
+          name="orders"
           options={{
             title: es.navigation.myOrders,
             tabBarLabel: 'Pedidos',
@@ -53,10 +53,6 @@ export default function ClientLayout() {
         <Tabs.Screen
           name="products/[id]"
           options={{ title: es.navigation.productDetail, href: null }}
-        />
-        <Tabs.Screen
-          name="orders/[id]"
-          options={{ title: es.navigation.orderDetail, href: null }}
         />
         <Tabs.Screen
           name="billing"

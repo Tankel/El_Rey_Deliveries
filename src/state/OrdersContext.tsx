@@ -1,7 +1,14 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { jsonStorage } from '@/core/storage/jsonStorage';
 import { es } from '@/i18n/es';
-import { DriverProfile, Order, OrderStatus } from '@/types/domain';
+import {
+  DeliveryProof,
+  DriverProfile,
+  Order,
+  OrderStatus,
+  OrderStatusHistoryEntry,
+  UserRole,
+} from '@/types/domain';
 
 type CreateOrderPayload = {
   clientId: string;
@@ -16,9 +23,23 @@ type ActionResult = {
   message: string;
 };
 
+type UpdateStatusOptions = {
+  actorId?: string;
+  actorRole?: UserRole;
+  deliveryNote?: string;
+  deliveryOtp?: string;
+  deliveryPhotoUri?: string;
+};
+
+type OrderNotificationAudience = 'ADMIN' | 'DRIVER';
+type OrderNotificationType = 'NEW_ORDER' | 'DRIVER_ASSIGNED' | 'ORDER_CANCELLED';
+
 type OrderNotification = {
   id: string;
   orderId: string;
+  type: OrderNotificationType;
+  audience: OrderNotificationAudience;
+  targetUserId?: string;
   message: string;
   createdAt: string;
   read: boolean;
@@ -32,7 +53,7 @@ type OrdersContextValue = {
   createOrder: (payload: CreateOrderPayload) => ActionResult;
   assignDriver: (orderId: string, driverId: string) => ActionResult;
   confirmOrderWithDriver: (orderId: string, driverId: string) => ActionResult;
-  updateStatus: (orderId: string, nextStatus: OrderStatus) => ActionResult;
+  updateStatus: (orderId: string, nextStatus: OrderStatus, options?: UpdateStatusOptions) => ActionResult;
   forceStatus: (orderId: string, nextStatus: OrderStatus) => ActionResult;
   getAllowedNextStatuses: (orderId: string) => OrderStatus[];
   markNotificationRead: (notificationId: string) => void;
@@ -55,6 +76,12 @@ const initialOrders: Order[] = [
     total: 320,
     createdAt: now,
     updatedAt: now,
+    statusHistory: [
+      {
+        status: 'PENDIENTE',
+        at: now,
+      },
+    ],
   },
 ];
 
@@ -77,6 +104,128 @@ function canTransition(current: OrderStatus, next: OrderStatus) {
   return allowedTransitions[current].includes(next);
 }
 
+function toIsoNow() {
+  return new Date().toISOString();
+}
+
+function normalizeOrder(order: Order): Order {
+  const createdAt = order.createdAt ?? toIsoNow();
+  const updatedAt = order.updatedAt ?? createdAt;
+  const history: OrderStatusHistoryEntry[] = order.statusHistory?.length
+    ? order.statusHistory
+    : [
+        {
+          status: 'PENDIENTE',
+          at: createdAt,
+        },
+      ];
+
+  const hasCurrentStatus = history.some((entry) => entry.status === order.status);
+  const statusHistory = hasCurrentStatus
+    ? history
+    : [
+        ...history,
+        {
+          status: order.status,
+          at: updatedAt,
+        },
+      ];
+
+  return {
+    ...order,
+    createdAt,
+    updatedAt,
+    statusHistory,
+  };
+}
+
+function normalizeNotification(
+  notification: Partial<OrderNotification> & Pick<OrderNotification, 'id' | 'orderId' | 'message' | 'createdAt'>,
+): OrderNotification {
+  return {
+    id: notification.id,
+    orderId: notification.orderId,
+    message: notification.message,
+    createdAt: notification.createdAt,
+    read: Boolean(notification.read),
+    audience: notification.audience ?? 'ADMIN',
+    type: notification.type ?? 'NEW_ORDER',
+    targetUserId: notification.targetUserId,
+  };
+}
+
+function appendStatusHistory(
+  order: Order,
+  status: OrderStatus,
+  timestamp: string,
+  meta?: Pick<OrderStatusHistoryEntry, 'byRole' | 'byUserId' | 'note'>,
+) {
+  const history = order.statusHistory ?? [];
+  const last = history[history.length - 1];
+  if (last?.status === status) {
+    return history;
+  }
+  return [
+    ...history,
+    {
+      status,
+      at: timestamp,
+      byRole: meta?.byRole,
+      byUserId: meta?.byUserId,
+      note: meta?.note,
+    },
+  ];
+}
+
+function buildDriverAssignmentNotification(orderId: string, driver: DriverProfile, timestamp: string) {
+  return {
+    id: `notif-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    orderId,
+    type: 'DRIVER_ASSIGNED' as const,
+    audience: 'DRIVER' as const,
+    targetUserId: driver.id,
+    message: `Se te asigno el pedido ${orderId}.`,
+    createdAt: timestamp,
+    read: false,
+  };
+}
+
+function buildDriverCancelledNotification(order: Order, timestamp: string) {
+  return {
+    id: `notif-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    orderId: order.id,
+    type: 'ORDER_CANCELLED' as const,
+    audience: 'DRIVER' as const,
+    targetUserId: order.assignedDriverId,
+    message: `El pedido ${order.id} fue cancelado.`,
+    createdAt: timestamp,
+    read: false,
+  };
+}
+
+function buildDeliveryProof(
+  timestamp: string,
+  options?: UpdateStatusOptions,
+): DeliveryProof | null {
+  const note = options?.deliveryNote?.trim();
+  const otp = options?.deliveryOtp?.trim();
+  const photoUri = options?.deliveryPhotoUri?.trim();
+  if (!note) {
+    return null;
+  }
+  if (!otp && !photoUri) {
+    return null;
+  }
+
+  return {
+    note,
+    otp,
+    photoUri,
+    capturedAt: timestamp,
+    capturedByUserId: options?.actorId,
+  };
+}
+
 export function OrdersProvider({ children }: PropsWithChildren) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [notifications, setNotifications] = useState<OrderNotification[]>([]);
@@ -88,8 +237,8 @@ export function OrdersProvider({ children }: PropsWithChildren) {
         ORDER_NOTIFICATIONS_STORAGE_KEY,
         [],
       );
-      setOrders(storedOrders);
-      setNotifications(storedNotifications);
+      setOrders(storedOrders.map((order) => normalizeOrder(order)));
+      setNotifications(storedNotifications.map((notification) => normalizeNotification(notification)));
     };
 
     hydrate();
@@ -108,9 +257,9 @@ export function OrdersProvider({ children }: PropsWithChildren) {
       drivers: initialDrivers,
       orders,
       notifications,
-      unreadNotificationsCount: notifications.filter((item) => !item.read).length,
+      unreadNotificationsCount: notifications.filter((item) => !item.read && item.audience === 'ADMIN').length,
       createOrder: (payload: CreateOrderPayload) => {
-        const timestamp = new Date().toISOString();
+        const timestamp = toIsoNow();
         const nextOrder: Order = {
           id: `order-${Date.now()}`,
           clientId: payload.clientId,
@@ -121,12 +270,22 @@ export function OrdersProvider({ children }: PropsWithChildren) {
           status: 'PENDIENTE',
           createdAt: timestamp,
           updatedAt: timestamp,
+          statusHistory: [
+            {
+              status: 'PENDIENTE',
+              at: timestamp,
+              byRole: 'CLIENT',
+              byUserId: payload.clientId,
+            },
+          ],
         };
         setOrders((prev) => [nextOrder, ...prev]);
         setNotifications((prev) => [
           {
-            id: `notif-${Date.now()}`,
+            id: `notif-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
             orderId: nextOrder.id,
+            type: 'NEW_ORDER',
+            audience: 'ADMIN',
             message: `Nuevo pedido recibido: ${nextOrder.id}`,
             createdAt: timestamp,
             read: false,
@@ -144,40 +303,48 @@ export function OrdersProvider({ children }: PropsWithChildren) {
         if (!driver) {
           return { ok: false, message: es.orders.driverNotFound };
         }
-        if (!(order.status === 'EN_PREPARACION' || order.status === 'CONFIRMADO')) {
-          if (order.status === 'PENDIENTE') {
-            setOrders((prev) =>
-              prev.map((item) =>
-                item.id === orderId
-                  ? {
-                      ...item,
-                      assignedDriverId: driver.id,
-                      assignedDriverName: driver.name,
-                      updatedAt: new Date().toISOString(),
-                    }
-                  : item,
-              ),
-            );
-            return { ok: true, message: `Repartidor ${driver.name} asignado.` };
-          }
+        const timestamp = toIsoNow();
+
+        if (!(order.status === 'EN_PREPARACION' || order.status === 'CONFIRMADO' || order.status === 'PENDIENTE')) {
           return {
             ok: false,
             message: es.orders.assignInvalid,
           };
         }
+
         setOrders((prev) =>
-          prev.map((order) =>
-            order.id === orderId && (order.status === 'EN_PREPARACION' || order.status === 'CONFIRMADO')
-              ? {
-                  ...order,
-                  assignedDriverId: driver.id,
-                  assignedDriverName: driver.name,
-                  status: 'ASIGNADO',
-                  updatedAt: new Date().toISOString(),
-                }
-              : order,
-          ),
+          prev.map((item) => {
+            if (item.id !== orderId) {
+              return item;
+            }
+
+            if (item.status === 'EN_PREPARACION' || item.status === 'CONFIRMADO') {
+              return {
+                ...item,
+                assignedDriverId: driver.id,
+                assignedDriverName: driver.name,
+                status: 'ASIGNADO',
+                updatedAt: timestamp,
+                statusHistory: appendStatusHistory(item, 'ASIGNADO', timestamp, {
+                  byRole: 'ADMIN',
+                }),
+              };
+            }
+
+            return {
+              ...item,
+              assignedDriverId: driver.id,
+              assignedDriverName: driver.name,
+              updatedAt: timestamp,
+            };
+          }),
         );
+
+        setNotifications((prev) => [
+          buildDriverAssignmentNotification(orderId, driver, timestamp),
+          ...prev,
+        ]);
+
         return { ok: true, message: es.orders.assigned(driver.name) };
       },
       confirmOrderWithDriver: (orderId: string, driverId: string) => {
@@ -193,6 +360,7 @@ export function OrdersProvider({ children }: PropsWithChildren) {
           return { ok: false, message: es.orders.driverNotFound };
         }
 
+        const timestamp = toIsoNow();
         setOrders((prev) =>
           prev.map((item) =>
             item.id === orderId
@@ -201,18 +369,49 @@ export function OrdersProvider({ children }: PropsWithChildren) {
                   status: 'ASIGNADO',
                   assignedDriverId: driver.id,
                   assignedDriverName: driver.name,
-                  updatedAt: new Date().toISOString(),
+                  updatedAt: timestamp,
+                  statusHistory: appendStatusHistory(item, 'ASIGNADO', timestamp, {
+                    byRole: 'ADMIN',
+                  }),
                 }
               : item,
           ),
         );
+        setNotifications((prev) => [buildDriverAssignmentNotification(orderId, driver, timestamp), ...prev]);
         return { ok: true, message: `Pedido confirmado y asignado a ${driver.name}.` };
       },
-      updateStatus: (orderId: string, nextStatus: OrderStatus) => {
+      updateStatus: (orderId: string, nextStatus: OrderStatus, options?: UpdateStatusOptions) => {
         const order = orders.find((item) => item.id === orderId);
         if (!order) {
           return { ok: false, message: es.orders.notFound };
         }
+
+        const isDriverTransition =
+          nextStatus === 'ACEPTADO_REPARTIDOR' || nextStatus === 'EN_CAMINO' || nextStatus === 'ENTREGADO';
+        const isAdminActor = options?.actorRole === 'ADMIN';
+        const isAssignedDriverActor =
+          options?.actorRole === 'DRIVER' && order.assignedDriverId === options.actorId;
+
+        if (isDriverTransition && !isAdminActor && !isAssignedDriverActor) {
+          return {
+            ok: false,
+            message: 'Solo el repartidor asignado puede ejecutar ese cambio de estado.',
+          };
+        }
+
+        if (options?.actorRole === 'DRIVER' && order.assignedDriverId !== options.actorId) {
+          return {
+            ok: false,
+            message: 'No puedes cambiar este pedido porque esta asignado a otro repartidor.',
+          };
+        }
+        if (options?.actorRole === 'DRIVER' && nextStatus === 'CANCELADO') {
+          return {
+            ok: false,
+            message: 'El repartidor no puede cancelar pedidos.',
+          };
+        }
+
         if (nextStatus === 'CONFIRMADO' && !order.assignedDriverId) {
           return {
             ok: false,
@@ -228,17 +427,39 @@ export function OrdersProvider({ children }: PropsWithChildren) {
             message: es.orders.invalidTransition(order.status, nextStatus),
           };
         }
+
+        const timestamp = toIsoNow();
+        const deliveryProof = nextStatus === 'ENTREGADO' ? buildDeliveryProof(timestamp, options) : null;
+
+        if (nextStatus === 'ENTREGADO' && !deliveryProof) {
+          return {
+            ok: false,
+            message: 'Para marcar ENTREGADO agrega una nota y una foto o un OTP.',
+          };
+        }
+
         setOrders((prev) =>
-          prev.map((order) =>
-            order.id === orderId && canTransition(order.status, nextStatus)
+          prev.map((item) =>
+            item.id === orderId && canTransition(item.status, nextStatus)
               ? {
-                  ...order,
+                  ...item,
                   status: nextStatus,
-                  updatedAt: new Date().toISOString(),
+                  updatedAt: timestamp,
+                  statusHistory: appendStatusHistory(item, nextStatus, timestamp, {
+                    byRole: options?.actorRole,
+                    byUserId: options?.actorId,
+                    note: options?.deliveryNote?.trim(),
+                  }),
+                  deliveryProof: nextStatus === 'ENTREGADO' ? deliveryProof ?? item.deliveryProof : item.deliveryProof,
                 }
-              : order,
+              : item,
           ),
         );
+
+        if (nextStatus === 'CANCELADO' && order.assignedDriverId) {
+          setNotifications((prev) => [buildDriverCancelledNotification(order, timestamp), ...prev]);
+        }
+
         return { ok: true, message: es.orders.updated(nextStatus) };
       },
       forceStatus: (orderId: string, nextStatus: OrderStatus) => {
@@ -249,17 +470,27 @@ export function OrdersProvider({ children }: PropsWithChildren) {
         if (order.status === nextStatus) {
           return { ok: false, message: es.orders.alreadyInStatus(nextStatus) };
         }
+
+        const timestamp = toIsoNow();
         setOrders((prev) =>
           prev.map((item) =>
             item.id === orderId
               ? {
                   ...item,
                   status: nextStatus,
-                  updatedAt: new Date().toISOString(),
+                  updatedAt: timestamp,
+                  statusHistory: appendStatusHistory(item, nextStatus, timestamp, {
+                    byRole: 'ADMIN',
+                  }),
                 }
               : item,
           ),
         );
+
+        if (nextStatus === 'CANCELADO' && order.assignedDriverId) {
+          setNotifications((prev) => [buildDriverCancelledNotification(order, timestamp), ...prev]);
+        }
+
         return { ok: true, message: `Estado forzado a ${nextStatus}.` };
       },
       getAllowedNextStatuses: (orderId: string) => {

@@ -126,7 +126,11 @@ export default function AdminOrderDetailScreen() {
         {canCancel ? (
           <Pressable
             style={styles.cancelButton}
-            onPress={() => showActionResult('status-cancel', () => updateStatus(order.id, 'CANCELADO'))}
+            onPress={() =>
+              showActionResult('status-cancel', () =>
+                updateStatus(order.id, 'CANCELADO', { actorRole: 'ADMIN' }),
+              )
+            }
           >
             <Text style={styles.cancelButtonText}>Cancelar pedido</Text>
           </Pressable>

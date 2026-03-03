@@ -1,7 +1,12 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { OrderStatus } from '@/types/domain';
+import { useLocalSearchParams } from 'expo-router';
+import { useMemo } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ORDER_STATUSES, OrderStatus } from '@/types/domain';
 import { useOrders } from '@/state/OrdersContext';
+
+const CLIENT_TIMELINE_STATUSES = ORDER_STATUSES.filter(
+  (status) => status !== 'PENDIENTE' && status !== 'CANCELADO',
+);
 
 function formatCurrency(value: number) {
   return `$${value.toFixed(2)}`;
@@ -32,10 +37,19 @@ function statusStyle(status: OrderStatus) {
 }
 
 export default function ClientOrderDetailScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const { orders } = useOrders();
   const order = orders.find((item) => item.id === params.id);
+
+  const historyMap = useMemo(() => {
+    const map = new Map<OrderStatus, string>();
+    (order?.statusHistory ?? []).forEach((entry) => {
+      if (!map.has(entry.status)) {
+        map.set(entry.status, entry.at);
+      }
+    });
+    return map;
+  }, [order?.statusHistory]);
 
   if (!order) {
     return (
@@ -48,7 +62,7 @@ export default function ClientOrderDetailScreen() {
   const badge = statusStyle(order.status);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Detalle de pedido</Text>
       <Text style={styles.orderId}>{order.id}</Text>
 
@@ -75,32 +89,47 @@ export default function ClientOrderDetailScreen() {
         <Text style={styles.label}>Actualizado</Text>
         <Text>{new Date(order.updatedAt).toLocaleString('es-MX')}</Text>
       </View>
-    </View>
+
+      <View style={styles.card}>
+        <Text style={styles.timelineTitle}>Timeline</Text>
+        {CLIENT_TIMELINE_STATUSES.map((status) => {
+          const reached = historyMap.has(status);
+          const isCurrent = status === order.status;
+
+          return (
+            <View key={status} style={styles.timelineRow}>
+              <View
+                style={[
+                  styles.timelineDot,
+                  reached && styles.timelineDotReached,
+                  isCurrent && styles.timelineDotCurrent,
+                ]}
+              />
+              <View style={styles.timelineTextBlock}>
+                <Text style={[styles.timelineStatus, isCurrent && styles.timelineStatusCurrent]}>
+                  {statusLabel(status)}
+                </Text>
+                <Text style={styles.timelineDate}>
+                  {reached ? new Date(historyMap.get(status) ?? '').toLocaleString('es-MX') : 'Pendiente'}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     padding: 16,
     gap: 12,
     backgroundColor: '#f9fafb',
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#ffffff',
-  },
-  backButtonText: {
     fontWeight: '700',
     color: '#111827',
   },
@@ -134,5 +163,47 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#111827',
+  },
+  timelineTitle: {
+    color: '#111827',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    marginTop: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#9ca3af',
+    backgroundColor: '#ffffff',
+  },
+  timelineDotReached: {
+    backgroundColor: '#bfdbfe',
+    borderColor: '#3b82f6',
+  },
+  timelineDotCurrent: {
+    backgroundColor: '#2563eb',
+    borderColor: '#1d4ed8',
+  },
+  timelineTextBlock: {
+    gap: 2,
+    flex: 1,
+  },
+  timelineStatus: {
+    color: '#374151',
+    fontWeight: '600',
+  },
+  timelineStatusCurrent: {
+    color: '#111827',
+  },
+  timelineDate: {
+    color: '#6b7280',
+    fontSize: 12,
   },
 });
