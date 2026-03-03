@@ -143,12 +143,12 @@ export default function ClientProfileScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Mas secciones</Text>
-        <Link href="/(client)/billing" asChild>
+        <Link href="/(client)/profile/billing" asChild>
           <Pressable style={styles.actionButton}>
             <Text style={styles.actionButtonText}>Ir a facturas</Text>
           </Pressable>
         </Link>
-        <Link href="/(client)/support" asChild>
+        <Link href="/(client)/profile/support" asChild>
           <Pressable style={styles.actionButton}>
             <Text style={styles.actionButtonText}>Obtener soporte y ayuda</Text>
           </Pressable>

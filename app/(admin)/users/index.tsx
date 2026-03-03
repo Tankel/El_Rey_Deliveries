@@ -205,7 +205,7 @@ export default function AdminUsersScreen() {
         />
         {filteredUsers.map((item) => (
           <View key={item.id} style={styles.row}>
-            {visibleColumns.includes('username') ? <Text style={styles.cell}>@{item.username}</Text> : null}
+            {visibleColumns.includes('username') ? <Text style={styles.cell}>{item.username}</Text> : null}
             {visibleColumns.includes('fullName') ? <Text style={styles.cell}>{item.fullName}</Text> : null}
             {visibleColumns.includes('role') ? <Text style={styles.cell}>{item.role}</Text> : null}
             {visibleColumns.includes('email') ? <Text style={styles.cell}>{item.email}</Text> : null}

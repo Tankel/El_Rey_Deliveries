@@ -23,7 +23,7 @@ export default function SupportScreen() {
         <Text style={styles.answer}>Entra a Perfil y abre la seccion Facturas.</Text>
       </View>
 
-      <Link href="/(client)/billing" asChild>
+      <Link href="/(client)/profile/billing" asChild>
         <Pressable style={styles.actionButton}>
           <Text style={styles.actionButtonText}>Ir a facturas</Text>
         </Pressable>

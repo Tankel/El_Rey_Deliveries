@@ -16,7 +16,7 @@ function ProductCardComponent({ product, onAdd }: Props) {
   const router = useRouter();
 
   return (
-    <Pressable style={styles.card} onPress={() => router.push(`/(client)/products/${product.id}`)}>
+    <Pressable style={styles.card} onPress={() => router.push(`/(client)/home/products/${product.id}`)}>
       <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={2}>

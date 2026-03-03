@@ -60,6 +60,7 @@ export default function ProductDetailScreen() {
         <Text style={styles.discount}>-{product.discountPercent}%</Text>
       </View>
 
+      <Text style={styles.savings}>Total del producto: {formatCurrency(product.price * quantity)}</Text>
       <Text style={styles.savings}>Ahorro calculado: {formatCurrency(savings)}</Text>
 
       <View style={styles.qtyRow}>

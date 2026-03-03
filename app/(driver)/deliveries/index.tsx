@@ -90,7 +90,7 @@ export default function DriverDeliveriesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.headerHint}>Panel operativo</Text>
+        <Text style={styles.headerHint}>Mis Entregas</Text>
         <DriverNotificationsBell />
       </View>
       <View style={styles.filterRow}>
