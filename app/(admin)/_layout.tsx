@@ -9,6 +9,8 @@ export default function AdminLayout() {
         <Stack.Screen name="dashboard" options={{ title: es.navigation.adminDashboard }} />
         <Stack.Screen name="orders/index" options={{ title: es.navigation.adminOrders }} />
         <Stack.Screen name="orders/[id]" options={{ title: es.navigation.adminOrderDetail }} />
+        <Stack.Screen name="users/index" options={{ title: 'Usuarios' }} />
+        <Stack.Screen name="products/index" options={{ title: 'Productos' }} />
       </Stack>
     </RoleGate>
   );

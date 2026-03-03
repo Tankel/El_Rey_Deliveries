@@ -1,6 +1,6 @@
 import { Product, ProductCategory, computeDiscountPercent } from '@/models/Product';
 
-const LOCAL_PRODUCTS: Product[] = [
+export const PRODUCT_SEED: Product[] = [
   {
     id: 'prod-coca-24-355',
     name: 'Refresco Cola',
@@ -153,12 +153,12 @@ function delay(ms: number) {
 
 export async function listLocalProducts(): Promise<Product[]> {
   await delay(250);
-  return LOCAL_PRODUCTS;
+  return PRODUCT_SEED;
 }
 
 export async function getLocalProductById(productId: string): Promise<Product | undefined> {
   await delay(180);
-  return LOCAL_PRODUCTS.find((item) => item.id === productId);
+  return PRODUCT_SEED.find((item) => item.id === productId);
 }
 
 export function getCategories(products: Product[]): ProductCategory[] {

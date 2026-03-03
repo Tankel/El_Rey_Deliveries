@@ -1,14 +1,18 @@
 export type UserRole = 'CLIENT' | 'ADMIN' | 'DRIVER';
 
+export const ORDER_STATUSES = [
+  'PENDIENTE',
+  'CONFIRMADO',
+  'EN_PREPARACION',
+  'ASIGNADO',
+  'ACEPTADO_REPARTIDOR',
+  'EN_CAMINO',
+  'ENTREGADO',
+  'CANCELADO',
+] as const;
+
 export type OrderStatus =
-  | 'PENDIENTE'
-  | 'CONFIRMADO'
-  | 'EN_PREPARACION'
-  | 'ASIGNADO'
-  | 'ACEPTADO_REPARTIDOR'
-  | 'EN_CAMINO'
-  | 'ENTREGADO'
-  | 'CANCELADO';
+  (typeof ORDER_STATUSES)[number];
 
 export type Order = {
   id: string;

@@ -1,27 +1,19 @@
+import { memo } from 'react';
 import { useRouter } from 'expo-router';
-import { GestureResponderEvent, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useCart } from '@/context/CartContext';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Product, formatProductPresentation } from '@/models/Product';
-import { useToast } from '@/ui/feedback/ToastContext';
 
 type Props = {
   product: Product;
+  onAdd: (product: Product) => void;
 };
 
 function formatCurrency(value: number) {
   return `$${value.toFixed(2)}`;
 }
 
-export function ProductCard({ product }: Props) {
+function ProductCardComponent({ product, onAdd }: Props) {
   const router = useRouter();
-  const { addItem } = useCart();
-  const { showToast } = useToast();
-
-  const handleAdd = (event: GestureResponderEvent) => {
-    event.stopPropagation();
-    const result = addItem(product, 1);
-    showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
-  };
 
   return (
     <Pressable style={styles.card} onPress={() => router.push(`/(client)/products/${product.id}`)}>
@@ -38,13 +30,21 @@ export function ProductCard({ product }: Props) {
             <Text style={styles.badgeText}>-{product.discountPercent}%</Text>
           </View>
         </View>
-        <Pressable style={styles.addButton} onPress={handleAdd}>
+        <Pressable
+          style={styles.addButton}
+          onPress={(event) => {
+            event.stopPropagation();
+            onAdd(product);
+          }}
+        >
           <Text style={styles.addButtonText}>Agregar</Text>
         </Pressable>
       </View>
     </Pressable>
   );
 }
+
+export const ProductCard = memo(ProductCardComponent);
 
 const styles = StyleSheet.create({
   card: {

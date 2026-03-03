@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCatalog } from '@/context/CatalogContext';
 import { useCart } from '@/context/CartContext';
-import { getLocalProductById } from '@/data/products';
-import { Product, formatProductPresentation } from '@/models/Product';
+import { formatProductPresentation } from '@/models/Product';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
 
@@ -13,32 +13,15 @@ function formatCurrency(value: number) {
 
 export default function ProductDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
+  const { products, isHydrated } = useCatalog();
   const { addItem } = useCart();
   const { showToast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-  const [product, setProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const load = async () => {
-      setIsLoading(true);
-      const found = await getLocalProductById(params.id);
-      if (isMounted) {
-        setProduct(found ?? null);
-        setIsLoading(false);
-      }
-    };
-
-    if (params.id) {
-      void load();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [params.id]);
+  const product = useMemo(
+    () => products.find((item) => item.id === params.id) ?? null,
+    [params.id, products],
+  );
+  const isLoading = !isHydrated;
 
   const savings = useMemo(() => {
     if (!product) {

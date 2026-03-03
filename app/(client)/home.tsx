@@ -1,39 +1,24 @@
 import { Link } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ProductCard } from '@/components/ProductCard';
+import { useCatalog } from '@/context/CatalogContext';
 import { useCart } from '@/context/CartContext';
-import { getCategories, listLocalProducts } from '@/data/products';
+import { getCategories } from '@/data/products';
 import { es } from '@/i18n/es';
+import { Product } from '@/models/Product';
 import { useAuth } from '@/state/AuthContext';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
+import { useToast } from '@/ui/feedback/ToastContext';
 
 export default function ClientHomeScreen() {
   const { user, signOut } = useAuth();
-  const { itemCount, isHydrated } = useCart();
-  const [isLoading, setIsLoading] = useState(true);
+  const { products, isHydrated: isCatalogHydrated } = useCatalog();
+  const { itemCount, isHydrated, addItem } = useCart();
+  const { showToast } = useToast();
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'Todos' | string>('Todos');
-  const [products, setProducts] = useState<Awaited<ReturnType<typeof listLocalProducts>>>([]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadProducts = async () => {
-      setIsLoading(true);
-      const localProducts = await listLocalProducts();
-      if (isMounted) {
-        setProducts(localProducts);
-        setIsLoading(false);
-      }
-    };
-
-    void loadProducts();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const isLoading = !isCatalogHydrated;
 
   const categories = useMemo(() => ['Todos', ...getCategories(products)], [products]);
 
@@ -45,6 +30,19 @@ export default function ClientHomeScreen() {
       return byCategory && byName;
     });
   }, [products, query, selectedCategory]);
+
+  const handleAddProduct = useCallback(
+    (product: Product) => {
+      const result = addItem(product, 1);
+      showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+    },
+    [addItem, showToast],
+  );
+
+  const renderProduct = useCallback(
+    ({ item }: { item: Product }) => <ProductCard product={item} onAdd={handleAddProduct} />,
+    [handleAddProduct],
+  );
 
   return (
     <View style={styles.container}>
@@ -99,7 +97,7 @@ export default function ClientHomeScreen() {
         <FlatList
           data={filteredProducts}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ProductCard product={item} />}
+          renderItem={renderProduct}
           ListEmptyComponent={
             <View style={styles.centerBox}>
               <Text>{es.client.emptyProducts}</Text>
