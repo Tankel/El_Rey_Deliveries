@@ -1,0 +1,168 @@
+import { Product, ProductCategory, computeDiscountPercent } from '@/models/Product';
+
+const LOCAL_PRODUCTS: Product[] = [
+  {
+    id: 'prod-coca-24-355',
+    name: 'Refresco Cola',
+    brand: 'Coca Cola',
+    image: 'https://images.pexels.com/photos/15205136/pexels-photo-15205136.jpeg?auto=compress&cs=tinysrgb&w=1200',
+    price: 189,
+    originalPrice: 219,
+    discountPercent: computeDiscountPercent(189, 219),
+    unit: 'ml',
+    sizeValue: 355,
+    quantityPerPack: 24,
+    containerType: 'Lata',
+    packaging: 'Caja cerrada',
+    seller: 'El Rey Distribuidora',
+    description: 'Paquete de refresco en lata ideal para tienda de barrio o evento.',
+    category: 'Bebidas',
+    stock: 34,
+  },
+  {
+    id: 'prod-agua-12-1l',
+    name: 'Agua Natural',
+    brand: 'Pureza',
+    image: 'https://images.unsplash.com/photo-1616118132534-381148898bb4?auto=format&fit=crop&w=800&q=80',
+    price: 129,
+    originalPrice: 145,
+    discountPercent: computeDiscountPercent(129, 145),
+    unit: 'l',
+    sizeValue: 1,
+    quantityPerPack: 12,
+    containerType: 'Botella PET',
+    packaging: 'Paquete termoencogido',
+    seller: 'El Rey Distribuidora',
+    description: 'Agua natural en presentacion de 1 litro por botella.',
+    category: 'Bebidas',
+    stock: 50,
+  },
+  {
+    id: 'prod-papas-18-45',
+    name: 'Papas Clasicas',
+    brand: 'Crunch',
+    image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=800&q=80',
+    price: 165,
+    originalPrice: 199,
+    discountPercent: computeDiscountPercent(165, 199),
+    unit: 'g',
+    sizeValue: 45,
+    quantityPerPack: 18,
+    containerType: 'Bolsa',
+    packaging: 'Caja corrugada',
+    seller: 'El Rey Distribuidora',
+    description: 'Botana de papa sabor clasico para impulso en mostrador.',
+    category: 'Snacks',
+    stock: 28,
+  },
+  {
+    id: 'prod-galleta-12-120',
+    name: 'Galleta Chocolate',
+    brand: 'Dulce Dia',
+    image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=800&q=80',
+    price: 98,
+    originalPrice: 115,
+    discountPercent: computeDiscountPercent(98, 115),
+    unit: 'g',
+    sizeValue: 120,
+    quantityPerPack: 12,
+    containerType: 'Bolsa',
+    packaging: 'Caja exhibidora',
+    seller: 'El Rey Distribuidora',
+    description: 'Galleta rellena para venta por unidad.',
+    category: 'Snacks',
+    stock: 42,
+  },
+  {
+    id: 'prod-arroz-10-900',
+    name: 'Arroz Premium',
+    brand: 'Casa Blanca',
+    image: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&w=800&q=80',
+    price: 210,
+    originalPrice: 245,
+    discountPercent: computeDiscountPercent(210, 245),
+    unit: 'g',
+    sizeValue: 900,
+    quantityPerPack: 10,
+    containerType: 'Bolsa',
+    packaging: 'Fardo',
+    seller: 'El Rey Distribuidora',
+    description: 'Arroz de grano largo para abarrotes.',
+    category: 'Abarrotes',
+    stock: 22,
+  },
+  {
+    id: 'prod-aceite-12-850',
+    name: 'Aceite Vegetal',
+    brand: 'Dona Sol',
+    image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=800&q=80',
+    price: 348,
+    originalPrice: 389,
+    discountPercent: computeDiscountPercent(348, 389),
+    unit: 'ml',
+    sizeValue: 850,
+    quantityPerPack: 12,
+    containerType: 'Botella PET',
+    packaging: 'Caja cerrada',
+    seller: 'El Rey Distribuidora',
+    description: 'Aceite vegetal para reposicion semanal.',
+    category: 'Abarrotes',
+    stock: 16,
+  },
+  {
+    id: 'prod-energetica-24-250',
+    name: 'Bebida Energetica',
+    brand: 'Volt',
+    image: 'https://images.unsplash.com/photo-1543253539-6a5b0d78b6f4?auto=format&fit=crop&w=800&q=80',
+    price: 299,
+    originalPrice: 365,
+    discountPercent: computeDiscountPercent(299, 365),
+    unit: 'ml',
+    sizeValue: 250,
+    quantityPerPack: 24,
+    containerType: 'Lata',
+    packaging: 'Caja cerrada',
+    seller: 'El Rey Distribuidora',
+    description: 'Pack promocional para impulso en refrigerador.',
+    category: 'Promociones',
+    stock: 18,
+  },
+  {
+    id: 'prod-gomitas-24-80',
+    name: 'Gomitas Frutales',
+    brand: 'Mix Candy',
+    image: 'https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?auto=format&fit=crop&w=800&q=80',
+    price: 142,
+    originalPrice: 179,
+    discountPercent: computeDiscountPercent(142, 179),
+    unit: 'g',
+    sizeValue: 80,
+    quantityPerPack: 24,
+    containerType: 'Bolsa',
+    packaging: 'Caja exhibidora',
+    seller: 'El Rey Distribuidora',
+    description: 'Gomitas de fruta para venta por impulso.',
+    category: 'Promociones',
+    stock: 30,
+  },
+];
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function listLocalProducts(): Promise<Product[]> {
+  await delay(250);
+  return LOCAL_PRODUCTS;
+}
+
+export async function getLocalProductById(productId: string): Promise<Product | undefined> {
+  await delay(180);
+  return LOCAL_PRODUCTS.find((item) => item.id === productId);
+}
+
+export function getCategories(products: Product[]): ProductCategory[] {
+  const unique = new Set<ProductCategory>();
+  products.forEach((product) => unique.add(product.category));
+  return Array.from(unique);
+}

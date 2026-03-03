@@ -7,6 +7,8 @@ export default function ClientLayout() {
     <RoleGate allow={['CLIENT']}>
       <Stack>
         <Stack.Screen name="home" options={{ title: es.navigation.clientHome }} />
+        <Stack.Screen name="products/[id]" options={{ title: es.navigation.productDetail }} />
+        <Stack.Screen name="cart" options={{ title: es.navigation.cart }} />
         <Stack.Screen name="orders/index" options={{ title: es.navigation.myOrders }} />
         <Stack.Screen name="orders/[id]" options={{ title: es.navigation.orderDetail }} />
       </Stack>
