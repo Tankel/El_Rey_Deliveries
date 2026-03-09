@@ -1,15 +1,18 @@
-﻿import { Redirect } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useUsers } from '@/context/UsersContext';
 import { useAuth } from '@/state/AuthContext';
-import { UserRole } from '@/types/domain';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
+import { useToast } from '@/ui/feedback/ToastContext';
 import { getHomeRouteByRole } from '@/utils/routing';
 
 export default function LoginScreen() {
   const { user, signIn, isHydrated } = useAuth();
+  const { resetToDemoUsers } = useUsers();
+  const { showToast } = useToast();
   const [username, setUsername] = useState('');
-  const [role, setRole] = useState<UserRole>('CLIENT');
+  const [password, setPassword] = useState('');
 
   if (!isHydrated) {
     return null;
@@ -22,33 +25,47 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>El Rey Distribuidora</Text>
-      <Text style={styles.subtitle}>MVP roles: Cliente, Admin y Repartidor</Text>
+      <Text style={styles.subtitle}>Inicia sesion con tu usuario y contraseña</Text>
 
+      <Text style={styles.label}>Usuario</Text>
       <TextInput
         value={username}
         onChangeText={setUsername}
         placeholder="Usuario"
         autoCapitalize="none"
+        placeholderTextColor="#6b7280"
+        style={styles.input}
+      />
+      <Text style={styles.label}>Contraseña</Text>
+      <TextInput
+        value={password}
+        onChangeText={setPassword}
+        placeholder="Contraseña"
+        secureTextEntry
+        autoCapitalize="none"
+        placeholderTextColor="#6b7280"
         style={styles.input}
       />
 
-      <View style={styles.roleRow}>
-        <PrimaryButton label="Cliente" onPress={() => setRole('CLIENT')} />
-        <PrimaryButton label="Admin" onPress={() => setRole('ADMIN')} />
-        <PrimaryButton label="Repartidor" onPress={() => setRole('DRIVER')} />
-      </View>
-
-      <Text style={styles.currentRole}>Rol seleccionado: {role}</Text>
-
       <PrimaryButton
         label="Iniciar sesion"
-        onPress={() =>
-          signIn({
-            username: username || 'operador',
-            role,
-          })
-        }
+        onPress={() => {
+          const result = signIn({ username, password });
+          showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+        }}
       />
+
+      {__DEV__ ? (
+        <Pressable
+          style={styles.debugButton}
+          onPress={() => {
+            const result = resetToDemoUsers();
+            showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+          }}
+        >
+          <Text style={styles.debugButtonText}>Debug: reset usuarios demo</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -59,26 +76,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
     gap: 12,
+    backgroundColor: '#f9fafb',
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
+    color: '#111827',
   },
   subtitle: {
     color: '#4b5563',
+    marginBottom: 8,
+  },
+  label: {
+    color: '#374151',
+    fontWeight: '700',
+    fontSize: 13,
   },
   input: {
     borderColor: '#9ca3af',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    color: '#111827',
   },
-  roleRow: {
-    flexDirection: 'row',
-    gap: 8,
+  debugButton: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#f3f4f6',
   },
-  currentRole: {
-    fontWeight: '600',
+  debugButtonText: {
+    color: '#374151',
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

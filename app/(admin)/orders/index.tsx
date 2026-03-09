@@ -1,4 +1,5 @@
 import { Link } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AdminNotificationsBell } from '@/components/admin/AdminNotificationsBell';
@@ -56,6 +57,7 @@ export default function AdminOrdersScreen() {
   const { showToast } = useToast();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<OrderFilter>('TODOS');
+  const [showFilters, setShowFilters] = useState(false);
 
   const filteredOrders = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -80,28 +82,35 @@ export default function AdminOrdersScreen() {
         <Text style={styles.title}>Pedidos</Text>
         <AdminNotificationsBell />
       </View>
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Buscar por folio, cliente o direccion"
-        placeholderTextColor="#6b7280"
-        style={styles.searchInput}
-      />
-
-      <View style={styles.filterRow}>
-        {FILTERS.map((item) => {
-          const selected = item === filter;
-          return (
-            <Pressable
-              key={item}
-              onPress={() => setFilter(item)}
-              style={[styles.filterChip, selected && styles.filterChipSelected]}
-            >
-              <Text style={[styles.filterText, selected && styles.filterTextSelected]}>{item}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.searchRow}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Buscar por folio, cliente o direccion"
+          placeholderTextColor="#6b7280"
+          style={[styles.searchInput, styles.searchInputFlex]}
+        />
+        <Pressable style={styles.filterButton} onPress={() => setShowFilters((prev) => !prev)}>
+          <Ionicons name="options-outline" size={18} color="#0f172a" />
+        </Pressable>
       </View>
+
+      {showFilters ? (
+        <View style={styles.filterRow}>
+          {FILTERS.map((item) => {
+            const selected = item === filter;
+            return (
+              <Pressable
+                key={item}
+                onPress={() => setFilter(item)}
+                style={[styles.filterChip, selected && styles.filterChipSelected]}
+              >
+                <Text style={[styles.filterText, selected && styles.filterTextSelected]}>{item}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       <FlatList
         data={filteredOrders}
@@ -159,7 +168,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   title: {
     fontSize: 24,
@@ -171,6 +180,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   searchInput: {
     backgroundColor: '#f8fafc',
     borderWidth: 1,
@@ -179,6 +193,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: '#111827',
+  },
+  searchInputFlex: {
+    flex: 1,
+  },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterRow: {
     flexDirection: 'row',

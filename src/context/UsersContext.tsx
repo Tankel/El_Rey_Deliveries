@@ -13,6 +13,7 @@ type UsersContextValue = {
   createUser: (payload: AdminUserInput) => ActionResult;
   updateUser: (userId: string, payload: AdminUserUpdate) => ActionResult;
   deleteUser: (userId: string) => ActionResult;
+  resetToDemoUsers: () => ActionResult;
 };
 
 const USERS_STORAGE_KEY = 'mvp.admin.users';
@@ -54,6 +55,11 @@ const USERS_SEED: AdminUser[] = [
   },
 ];
 
+function buildUsersSeed(): AdminUser[] {
+  const createdAt = new Date().toISOString();
+  return USERS_SEED.map((item) => ({ ...item, createdAt }));
+}
+
 function slugify(text: string) {
   return text
     .toLowerCase()
@@ -70,12 +76,12 @@ function normalizeUser(user: AdminUser): AdminUser {
 }
 
 export function UsersProvider({ children }: PropsWithChildren) {
-  const [users, setUsers] = useState<AdminUser[]>(USERS_SEED);
+  const [users, setUsers] = useState<AdminUser[]>(buildUsersSeed());
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     const hydrate = async () => {
-      const stored = await jsonStorage.read<AdminUser[]>(USERS_STORAGE_KEY, USERS_SEED);
+      const stored = await jsonStorage.read<AdminUser[]>(USERS_STORAGE_KEY, buildUsersSeed());
       setUsers(stored.map((item) => normalizeUser(item)));
       setIsHydrated(true);
     };
@@ -165,6 +171,10 @@ export function UsersProvider({ children }: PropsWithChildren) {
         }
         setUsers((prev) => prev.filter((user) => user.id !== userId));
         return { ok: true, message: 'Usuario eliminado.' };
+      },
+      resetToDemoUsers: () => {
+        setUsers(buildUsersSeed());
+        return { ok: true, message: 'Usuarios demo restaurados.' };
       },
     }),
     [isHydrated, users],

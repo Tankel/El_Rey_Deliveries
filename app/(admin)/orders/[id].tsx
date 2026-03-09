@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ORDER_STATUSES, OrderStatus } from '@/types/domain';
@@ -31,7 +31,6 @@ function statusStyle(status: OrderStatus) {
 }
 
 export default function AdminOrderDetailScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const { orders, drivers, confirmOrderWithDriver, updateStatus, forceStatus } = useOrders();
   const { showToast } = useToast();
@@ -66,9 +65,6 @@ export default function AdminOrderDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Volver</Text>
-      </Pressable>
       <Text style={styles.title}>Gestion de pedido</Text>
       <Text style={styles.orderId}>{order.id}</Text>
 
@@ -173,20 +169,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
-    backgroundColor: '#f9fafb',
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     backgroundColor: '#ffffff',
-  },
-  backButtonText: {
-    fontWeight: '700',
-    color: '#111827',
   },
   title: {
     fontSize: 24,
@@ -259,8 +242,8 @@ const styles = StyleSheet.create({
   confirmButton: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#16a34a',
-    backgroundColor: '#22c55e',
+    borderColor: '#111827',
+    backgroundColor: '#111827',
     paddingHorizontal: 12,
     paddingVertical: 12,
     alignItems: 'center',

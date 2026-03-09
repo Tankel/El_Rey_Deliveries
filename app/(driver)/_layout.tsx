@@ -3,17 +3,8 @@ import { Tabs } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { es } from '@/i18n/es';
 import { RoleGate } from '@/navigation/RoleGate';
-import { useAuth } from '@/state/AuthContext';
-import { useOrders } from '@/state/OrdersContext';
 
 export default function DriverLayout() {
-  const { user } = useAuth();
-  const { notifications } = useOrders();
-  const unreadDriverNotifications = notifications.filter(
-    (item) =>
-      item.audience === 'DRIVER' && item.targetUserId === user?.id && !item.read,
-  ).length;
-
   return (
     <RoleGate allow={['DRIVER']}>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
@@ -33,35 +24,33 @@ export default function DriverLayout() {
             name="deliveries"
             options={{
               title: es.navigation.driverDeliveries,
-              tabBarLabel: 'Entregas',
+              tabBarLabel: 'Inicio',
               tabBarIcon: ({ color, size }) => (
-                <Ionicons name="car-outline" color={color} size={size} />
+                <Ionicons name="home-outline" color={color} size={size} />
               ),
             }}
           />
-        <Tabs.Screen
-          name="inbox"
-          options={{
-            title: es.navigation.driverInbox,
-            tabBarLabel: 'Nuevas',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="notifications-outline" color={color} size={size} />
-            ),
-            tabBarBadge: unreadDriverNotifications > 0 ? unreadDriverNotifications : undefined,
-          }}
-        />
-        <Tabs.Screen
-          name="profile"
-          options={{
-            title: es.navigation.profile,
-            tabBarLabel: 'Perfil',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="person-circle-outline" color={color} size={size} />
-            ),
-          }}
-        />
-      </Tabs>
-    </SafeAreaView>
-  </RoleGate>
+          <Tabs.Screen
+            name="profile"
+            options={{
+              title: es.navigation.profile,
+              tabBarLabel: 'Perfil',
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="person-circle-outline" color={color} size={size} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="inbox"
+            options={{
+              title: es.navigation.driverInbox,
+              href: null,
+              headerShown: true,
+              headerBackButtonDisplayMode: 'default',
+            }}
+          />
+        </Tabs>
+      </SafeAreaView>
+    </RoleGate>
   );
 }

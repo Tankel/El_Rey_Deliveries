@@ -3,19 +3,43 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AdminNotificationsBell } from '@/components/admin/AdminNotificationsBell';
 import { useCatalog } from '@/context/CatalogContext';
 import { useUsers } from '@/context/UsersContext';
+import { exportAdminWorkbook } from '@/services/export/adminWorkbook';
+import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
 import { useToast } from '@/ui/feedback/ToastContext';
 
-function asCsv(headers: string[], rows: Array<Array<string | number>>) {
-  const head = headers.join(',');
-  const body = rows.map((row) => row.map((item) => `"${String(item).replaceAll('"', '""')}"`).join(','));
-  return [head, ...body].join('\n');
+const palette = {
+  yellow: '#FFD400',
+  gold: '#FFC300',
+  orange: '#FF8C00',
+  deepOrange: '#FF5F00',
+  text: '#111827',
+  muted: '#6b7280',
+  border: '#e5e7eb',
+  card: '#ffffff',
+};
+
+type MetricCardProps = {
+  value: number | string;
+  label: string;
+  accent: string;
+};
+
+function MetricCard({ value, label, accent }: MetricCardProps) {
+  return (
+    <View style={styles.metricCard}>
+      <View style={[styles.metricAccent, { backgroundColor: accent }]} />
+      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </View>
+  );
 }
 
 export default function AdminDashboardScreen() {
   const { orders } = useOrders();
   const { users } = useUsers();
   const { products } = useCatalog();
+  const { auditLog } = useAuth();
   const { showToast } = useToast();
 
   const pending = orders.filter((order) => order.status === 'PENDIENTE').length;
@@ -27,140 +51,99 @@ export default function AdminDashboardScreen() {
     .filter((order) => order.status === 'ENTREGADO')
     .reduce((acc, item) => acc + item.total, 0);
   const activeUsers = users.filter((item) => item.isActive).length;
+  const failedLogins = auditLog.filter((item) => item.action === 'LOGIN_FAILED').length;
 
-  const exportOrdersCsv = () => {
-    const csv = asCsv(
-      ['id', 'cliente', 'estado', 'total', 'direccion', 'repartidor', 'actualizado'],
-      orders.map((item) => [
-        item.id,
-        item.clientName,
-        item.status,
-        item.total,
-        item.address,
-        item.assignedDriverName ?? '',
-        item.updatedAt,
-      ]),
-    );
-    console.log('CSV_ORDERS\n' + csv);
-    showToast({ type: 'success', message: 'CSV de pedidos generado (ver consola).' });
-  };
-
-  const exportUsersCsv = () => {
-    const csv = asCsv(
-      ['id', 'username', 'nombre', 'rol', 'activo', 'correo', 'telefono'],
-      users.map((item) => [
-        item.id,
-        item.username,
-        item.fullName,
-        item.role,
-        item.isActive ? 'si' : 'no',
-        item.email,
-        item.phone,
-      ]),
-    );
-    console.log('CSV_USERS\n' + csv);
-    showToast({ type: 'success', message: 'CSV de usuarios generado (ver consola).' });
-  };
-
-  const exportProductsCsv = () => {
-    const csv = asCsv(
-      ['id', 'nombre', 'marca', 'categoria', 'precio', 'stock', 'descuento'],
-      products.map((item) => [
-        item.id,
-        item.name,
-        item.brand,
-        item.category,
-        item.price,
-        item.stock ?? 0,
-        item.discountPercent,
-      ]),
-    );
-    console.log('CSV_PRODUCTS\n' + csv);
-    showToast({ type: 'success', message: 'CSV de productos generado (ver consola).' });
+  const exportXlsx = async () => {
+    const result = await exportAdminWorkbook({
+      orders,
+      users,
+      products,
+      kpis: [
+        { indicador: 'Pedidos pendientes', valor: pending },
+        { indicador: 'Pedidos en camino', valor: activeRoute },
+        { indicador: 'Pedidos asignados', valor: assigned },
+        { indicador: 'Pedidos entregados', valor: delivered },
+        { indicador: 'Pedidos cancelados', valor: cancelled },
+        { indicador: 'Venta entregada', valor: deliveredRevenue.toFixed(2) },
+        { indicador: 'Usuarios activos', valor: activeUsers },
+        { indicador: 'Intentos fallidos login', valor: failedLogins },
+      ],
+    });
+    showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Panel Admin</Text>
+      <View style={styles.topBarCard}>
+        <View>
+          <Text style={styles.title}>Panel Admin</Text>
+          <Text style={styles.subtitle}>Control operativo y supervision del sistema</Text>
+        </View>
         <AdminNotificationsBell />
       </View>
-      <Text style={styles.subtitle}>Resumen rapido de operacion</Text>
 
-      <View style={styles.kpiGrid}>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{pending}</Text>
-          <Text style={styles.kpiLabel}>Pendientes</Text>
+      <View style={styles.metricsGrid}>
+        <MetricCard value={pending} label="Pendientes" accent={palette.yellow} />
+        <MetricCard value={assigned} label="Asignados" accent={palette.gold} />
+        <MetricCard value={activeRoute} label="En camino" accent={palette.orange} />
+        <MetricCard value={delivered} label="Entregados" accent={palette.deepOrange} />
+      </View>
+
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Resumen rapido</Text>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Venta entregada</Text>
+          <Text style={styles.summaryValue}>${deliveredRevenue.toFixed(2)}</Text>
         </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{activeRoute}</Text>
-          <Text style={styles.kpiLabel}>En camino</Text>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Usuarios activos</Text>
+          <Text style={styles.summaryValue}>{activeUsers}</Text>
         </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{assigned}</Text>
-          <Text style={styles.kpiLabel}>Asignados</Text>
-        </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{delivered}</Text>
-          <Text style={styles.kpiLabel}>Entregados</Text>
-        </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{cancelled}</Text>
-          <Text style={styles.kpiLabel}>Cancelados</Text>
-        </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>${deliveredRevenue.toFixed(0)}</Text>
-          <Text style={styles.kpiLabel}>Venta entregada</Text>
-        </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{activeUsers}</Text>
-          <Text style={styles.kpiLabel}>Usuarios activos</Text>
-        </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{products.length}</Text>
-          <Text style={styles.kpiLabel}>Productos</Text>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Login fallido</Text>
+          <Text style={styles.summaryValue}>{failedLogins}</Text>
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gestion</Text>
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Modulos</Text>
         <Link href="/(admin)/orders" asChild>
-          <Pressable style={styles.navCard}>
-            <Text style={styles.navTitle}>Pedidos</Text>
-            <Text style={styles.navMeta}>Total: {orders.length}</Text>
+          <Pressable style={styles.navButton}>
+            <Text style={styles.navButtonText}>Pedidos ({orders.length})</Text>
+            <Text style={styles.navButtonArrow}>›</Text>
           </Pressable>
         </Link>
         <Link href="/(admin)/users" asChild>
-          <Pressable style={styles.navCard}>
-            <Text style={styles.navTitle}>Usuarios</Text>
-            <Text style={styles.navMeta}>Total: {users.length}</Text>
+          <Pressable style={styles.navButton}>
+            <Text style={styles.navButtonText}>Usuarios ({users.length})</Text>
+            <Text style={styles.navButtonArrow}>›</Text>
           </Pressable>
         </Link>
         <Link href="/(admin)/products" asChild>
-          <Pressable style={styles.navCard}>
-            <Text style={styles.navTitle}>Productos</Text>
-            <Text style={styles.navMeta}>Total: {products.length}</Text>
-          </Pressable>
-        </Link>
-        <Link href="/(admin)/profile" asChild>
-          <Pressable style={styles.navCard}>
-            <Text style={styles.navTitle}>Perfil admin</Text>
-            <Text style={styles.navMeta}>Configuracion y cierre de sesion</Text>
+          <Pressable style={styles.navButton}>
+            <Text style={styles.navButtonText}>Productos ({products.length})</Text>
+            <Text style={styles.navButtonArrow}>›</Text>
           </Pressable>
         </Link>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Exportaciones (CSV)</Text>
-        <Pressable style={styles.exportBtn} onPress={exportOrdersCsv}>
-          <Text style={styles.exportBtnText}>Exportar pedidos</Text>
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Exportacion</Text>
+        <Pressable style={styles.primaryButton} onPress={exportXlsx}>
+          <Text style={styles.primaryButtonText}>Exportar XLSX (pedidos, usuarios, productos, KPIs)</Text>
         </Pressable>
-        <Pressable style={styles.exportBtn} onPress={exportUsersCsv}>
-          <Text style={styles.exportBtnText}>Exportar usuarios</Text>
-        </Pressable>
-        <Pressable style={styles.exportBtn} onPress={exportProductsCsv}>
-          <Text style={styles.exportBtnText}>Exportar productos</Text>
-        </Pressable>
+      </View>
+
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Bitacora de acceso</Text>
+        {auditLog.slice(0, 8).map((item) => (
+          <View key={item.id} style={styles.logItem}>
+            <Text style={styles.logAction}>{item.action}</Text>
+            <Text style={styles.logMeta}>{item.username} - {new Date(item.at).toLocaleString('es-MX')}</Text>
+            <Text style={styles.logMessage}>{item.message}</Text>
+          </View>
+        ))}
+        {auditLog.length === 0 ? <Text style={styles.emptyText}>Sin eventos de autenticacion.</Text> : null}
       </View>
     </ScrollView>
   );
@@ -170,78 +153,147 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
+  },
+  topBarCard: {
+    backgroundColor: palette.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: palette.border,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    fontSize: 26,
+    fontWeight: '800',
+    color: palette.text,
   },
   subtitle: {
-    color: '#6b7280',
+    color: palette.muted,
+    marginTop: 2,
   },
-  kpiGrid: {
+  metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
-  kpiCard: {
+  metricCard: {
     width: '48%',
-    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: palette.border,
     borderRadius: 12,
-    padding: 12,
-    gap: 4,
+    backgroundColor: palette.card,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
   },
-  kpiValue: {
+  metricAccent: {
+    width: 36,
+    height: 4,
+    borderRadius: 999,
+  },
+  metricValue: {
     fontSize: 28,
+    lineHeight: 32,
     fontWeight: '800',
-    color: '#111827',
+    color: palette.text,
   },
-  kpiLabel: {
+  metricLabel: {
     color: '#4b5563',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 13,
   },
-  section: {
+  sectionCard: {
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 12,
+    backgroundColor: palette.card,
+    padding: 12,
     gap: 8,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 17,
+    fontWeight: '800',
+    color: palette.text,
   },
-  navCard: {
-    backgroundColor: '#ffffff',
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  summaryLabel: {
+    color: '#374151',
+    fontWeight: '600',
+  },
+  summaryValue: {
+    color: palette.text,
+    fontWeight: '800',
+  },
+  navButton: {
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 12,
-    gap: 4,
-  },
-  navTitle: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#111827',
-  },
-  navMeta: {
-    color: '#4b5563',
-  },
-  exportBtn: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
     borderRadius: 10,
-    backgroundColor: '#ffffff',
     paddingHorizontal: 12,
     paddingVertical: 10,
+    backgroundColor: '#f8fafc',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  exportBtnText: {
-    color: '#0f172a',
+  navButtonText: {
+    color: palette.text,
     fontWeight: '700',
+  },
+  navButtonArrow: {
+    color: '#9ca3af',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  primaryButton: {
+    borderWidth: 1,
+    borderColor: '#111827',
+    borderRadius: 10,
+    backgroundColor: '#111827',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: '800',
+  },
+  logItem: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    padding: 10,
+    gap: 2,
+    backgroundColor: '#f8fafc',
+  },
+  logAction: {
+    color: '#111827',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  logMeta: {
+    color: '#6b7280',
+    fontSize: 12,
+  },
+  logMessage: {
+    color: '#374151',
+  },
+  emptyText: {
+    color: '#6b7280',
+    textAlign: 'center',
+    paddingVertical: 10,
   },
 });

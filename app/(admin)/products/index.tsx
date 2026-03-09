@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useCatalog } from '@/context/CatalogContext';
 import { Product, ProductCategory, ProductUnit } from '@/models/Product';
-import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
 
 type ProductColumn = 'id' | 'name' | 'brand' | 'category' | 'price' | 'stock' | 'discountPercent';
@@ -110,6 +109,7 @@ export default function AdminProductsScreen() {
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM);
   const [newContainerType, setNewContainerType] = useState('');
   const [newPackaging, setNewPackaging] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
 
   const containerOptions = useMemo(() => {
     const options = new Set(containerTypeOptions);
@@ -151,12 +151,18 @@ export default function AdminProductsScreen() {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setIsFormOpen(true);
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }, 0);
   };
 
   const startEdit = (product: Product) => {
     setEditingId(product.id);
     setForm(toForm(product));
     setIsFormOpen(true);
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }, 0);
   };
 
   const closeForm = () => {
@@ -222,7 +228,7 @@ export default function AdminProductsScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
       <View style={styles.titleRow}>
         <Text style={styles.title}>Productos</Text>
         <Pressable style={styles.addButton} onPress={openCreateForm}>
@@ -417,8 +423,14 @@ export default function AdminProductsScreen() {
             style={styles.input}
           />
 
-          <PrimaryButton label={editingId ? 'Guardar producto' : 'Crear producto'} onPress={save} />
-          <PrimaryButton label="Cancelar" onPress={closeForm} />
+          <View style={styles.formActions}>
+            <Pressable style={styles.saveButton} onPress={save}>
+              <Text style={styles.saveButtonText}>{editingId ? 'Guardar producto' : 'Crear producto'}</Text>
+            </Pressable>
+            <Pressable style={styles.cancelButton} onPress={closeForm}>
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
 
@@ -486,7 +498,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   titleRow: {
     flexDirection: 'row',
@@ -554,7 +566,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: '#d1d5db',
     borderRadius: 10,
     backgroundColor: '#f8fafc',
     alignItems: 'center',
@@ -600,14 +612,47 @@ const styles = StyleSheet.create({
   },
   addOptionBtn: {
     borderWidth: 1,
-    borderColor: '#1d4ed8',
+    borderColor: '#111827',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#dbeafe',
+    backgroundColor: '#f3f4f6',
   },
   addOptionText: {
-    color: '#1e40af',
+    color: '#111827',
+    fontWeight: '700',
+  },
+  formActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  saveButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#111827',
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  cancelButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#374151',
     fontWeight: '700',
   },
   tableRow: {
