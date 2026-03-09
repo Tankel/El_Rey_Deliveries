@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useCatalog } from '@/context/CatalogContext';
 import { Product, ProductCategory, ProductUnit } from '@/models/Product';
@@ -103,6 +104,8 @@ export default function AdminProductsScreen() {
     'price',
     'stock',
   ]);
+  const [showColumnFilters, setShowColumnFilters] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM);
   const [newContainerType, setNewContainerType] = useState('');
@@ -138,22 +141,28 @@ export default function AdminProductsScreen() {
     );
   }, [products, query]);
 
-  const selectedProduct = editingId ? products.find((item) => item.id === editingId) : null;
-
   const toggleColumn = (column: ProductColumn) => {
     setVisibleColumns((prev) =>
       prev.includes(column) ? prev.filter((item) => item !== column) : [...prev, column],
     );
   };
 
-  const startCreate = () => {
+  const openCreateForm = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setIsFormOpen(true);
   };
 
   const startEdit = (product: Product) => {
     setEditingId(product.id);
     setForm(toForm(product));
+    setIsFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
   };
 
   const save = () => {
@@ -180,7 +189,7 @@ export default function AdminProductsScreen() {
         });
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     if (result.ok) {
-      startCreate();
+      closeForm();
     }
   };
 
@@ -188,7 +197,7 @@ export default function AdminProductsScreen() {
     const result = deleteProduct(productId);
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     if (editingId === productId) {
-      startCreate();
+      closeForm();
     }
   };
 
@@ -214,224 +223,238 @@ export default function AdminProductsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Productos</Text>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{editingId ? 'Editar producto' : 'Agregar producto'}</Text>
-
-        <Text style={styles.fieldLabel}>Nombre</Text>
-        <TextInput
-          value={form.name}
-          onChangeText={(value) => setForm((prev) => ({ ...prev, name: value }))}
-          placeholder="Nombre"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
-
-        <Text style={styles.fieldLabel}>Marca</Text>
-        <TextInput
-          value={form.brand}
-          onChangeText={(value) => setForm((prev) => ({ ...prev, brand: value }))}
-          placeholder="Marca"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
-
-        <Text style={styles.fieldLabel}>URL imagen</Text>
-        <TextInput
-          value={form.image}
-          onChangeText={(value) => setForm((prev) => ({ ...prev, image: value }))}
-          placeholder="https://..."
-          autoCapitalize="none"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
-
-        <Text style={styles.fieldLabel}>Precio / Precio original / Stock</Text>
-        <View style={styles.row}>
-          <TextInput
-            value={form.price}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, price: value }))}
-            placeholder="Precio"
-            keyboardType="numeric"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={[styles.input, styles.flexInput]}
-          />
-          <TextInput
-            value={form.originalPrice}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, originalPrice: value }))}
-            placeholder="Precio original"
-            keyboardType="numeric"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={[styles.input, styles.flexInput]}
-          />
-          <TextInput
-            value={form.stock}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, stock: value }))}
-            placeholder="Stock"
-            keyboardType="numeric"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={[styles.input, styles.flexInput]}
-          />
-        </View>
-
-        <Text style={styles.formLabel}>Categoria</Text>
-        <View style={styles.chipsWrap}>
-          {CATEGORIES.map((category) => {
-            const selected = category === form.category;
-            return (
-              <Pressable
-                key={category}
-                onPress={() => setForm((prev) => ({ ...prev, category }))}
-                style={[styles.chip, selected && styles.chipSelected]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{category}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Text style={styles.formLabel}>Unidad</Text>
-        <View style={styles.chipsWrap}>
-          {UNITS.map((unit) => {
-            const selected = unit === form.unit;
-            return (
-              <Pressable
-                key={unit}
-                onPress={() => setForm((prev) => ({ ...prev, unit }))}
-                style={[styles.chip, selected && styles.chipSelected]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{unit}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <Text style={styles.fieldLabel}>Piezas por pack / Tamano</Text>
-        <View style={styles.row}>
-          <TextInput
-            value={form.quantityPerPack}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, quantityPerPack: value }))}
-            placeholder="Piezas por pack"
-            keyboardType="numeric"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={[styles.input, styles.flexInput]}
-          />
-          <TextInput
-            value={form.sizeValue}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, sizeValue: value }))}
-            placeholder="Tamano"
-            keyboardType="numeric"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={[styles.input, styles.flexInput]}
-          />
-        </View>
-
-        <Text style={styles.formLabel}>Tipo de contenedor</Text>
-        <View style={styles.chipsWrap}>
-          {containerOptions.map((option) => {
-            const selected = option === form.containerType;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => setForm((prev) => ({ ...prev, containerType: option }))}
-                style={[styles.chip, selected && styles.chipSelected]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.row}>
-          <TextInput
-            value={newContainerType}
-            onChangeText={setNewContainerType}
-            placeholder="Agregar tipo de contenedor"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={[styles.input, styles.flexInput]}
-          />
-          <Pressable style={styles.addOptionBtn} onPress={createContainerOption}>
-            <Text style={styles.addOptionText}>Agregar</Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.formLabel}>Empaque</Text>
-        <View style={styles.chipsWrap}>
-          {packagingSelectOptions.map((option) => {
-            const selected = option === form.packaging;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => setForm((prev) => ({ ...prev, packaging: option }))}
-                style={[styles.chip, selected && styles.chipSelected]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.row}>
-          <TextInput
-            value={newPackaging}
-            onChangeText={setNewPackaging}
-            placeholder="Agregar empaque"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={[styles.input, styles.flexInput]}
-          />
-          <Pressable style={styles.addOptionBtn} onPress={createPackagingOption}>
-            <Text style={styles.addOptionText}>Agregar</Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.fieldLabel}>Vendedor</Text>
-        <TextInput
-          value={form.seller}
-          onChangeText={(value) => setForm((prev) => ({ ...prev, seller: value }))}
-          placeholder="Vendedor"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
-
-        <Text style={styles.fieldLabel}>Descripcion</Text>
-        <TextInput
-          value={form.description}
-          onChangeText={(value) => setForm((prev) => ({ ...prev, description: value }))}
-          placeholder="Descripcion"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
-
-        <PrimaryButton label={editingId ? 'Guardar producto' : 'Crear producto'} onPress={save} />
-        {editingId ? <PrimaryButton label="Cancelar edicion" onPress={startCreate} /> : null}
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Productos</Text>
+        <Pressable style={styles.addButton} onPress={openCreateForm}>
+          <Ionicons name="add-circle-outline" size={18} color="#ffffff" />
+          <Text style={styles.addButtonText}>Agregar producto</Text>
+        </Pressable>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Columnas visibles</Text>
-        <View style={styles.chipsWrap}>
-          {ALL_COLUMNS.map((column) => {
-            const selected = visibleColumns.includes(column.key);
-            return (
-              <Pressable
-                key={column.key}
-                onPress={() => toggleColumn(column.key)}
-                style={[styles.chip, selected && styles.chipSelected]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{column.label}</Text>
-              </Pressable>
-            );
-          })}
+      {isFormOpen ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{editingId ? 'Editar producto' : 'Agregar producto'}</Text>
+
+          <Text style={styles.fieldLabel}>Nombre</Text>
+          <TextInput
+            value={form.name}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, name: value }))}
+            placeholder="Nombre"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
+          />
+
+          <Text style={styles.fieldLabel}>Marca</Text>
+          <TextInput
+            value={form.brand}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, brand: value }))}
+            placeholder="Marca"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
+          />
+
+          <Text style={styles.fieldLabel}>URL imagen</Text>
+          <TextInput
+            value={form.image}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, image: value }))}
+            placeholder="https://..."
+            autoCapitalize="none"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
+          />
+
+          <Text style={styles.fieldLabel}>Precio / Precio original / Stock</Text>
+          <View style={styles.row}>
+            <TextInput
+              value={form.price}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, price: value }))}
+              placeholder="Precio"
+              keyboardType="numeric"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={[styles.input, styles.flexInput]}
+            />
+            <TextInput
+              value={form.originalPrice}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, originalPrice: value }))}
+              placeholder="Precio original"
+              keyboardType="numeric"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={[styles.input, styles.flexInput]}
+            />
+            <TextInput
+              value={form.stock}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, stock: value }))}
+              placeholder="Stock"
+              keyboardType="numeric"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={[styles.input, styles.flexInput]}
+            />
+          </View>
+
+          <Text style={styles.formLabel}>Categoria</Text>
+          <View style={styles.chipsWrap}>
+            {CATEGORIES.map((category) => {
+              const selected = category === form.category;
+              return (
+                <Pressable
+                  key={category}
+                  onPress={() => setForm((prev) => ({ ...prev, category }))}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{category}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.formLabel}>Unidad</Text>
+          <View style={styles.chipsWrap}>
+            {UNITS.map((unit) => {
+              const selected = unit === form.unit;
+              return (
+                <Pressable
+                  key={unit}
+                  onPress={() => setForm((prev) => ({ ...prev, unit }))}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{unit}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.fieldLabel}>Piezas por pack / Tamano</Text>
+          <View style={styles.row}>
+            <TextInput
+              value={form.quantityPerPack}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, quantityPerPack: value }))}
+              placeholder="Piezas por pack"
+              keyboardType="numeric"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={[styles.input, styles.flexInput]}
+            />
+            <TextInput
+              value={form.sizeValue}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, sizeValue: value }))}
+              placeholder="Tamano"
+              keyboardType="numeric"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={[styles.input, styles.flexInput]}
+            />
+          </View>
+
+          <Text style={styles.formLabel}>Tipo de contenedor</Text>
+          <View style={styles.chipsWrap}>
+            {containerOptions.map((option) => {
+              const selected = option === form.containerType;
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => setForm((prev) => ({ ...prev, containerType: option }))}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={styles.row}>
+            <TextInput
+              value={newContainerType}
+              onChangeText={setNewContainerType}
+              placeholder="Agregar tipo de contenedor"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={[styles.input, styles.flexInput]}
+            />
+            <Pressable style={styles.addOptionBtn} onPress={createContainerOption}>
+              <Text style={styles.addOptionText}>Agregar</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.formLabel}>Empaque</Text>
+          <View style={styles.chipsWrap}>
+            {packagingSelectOptions.map((option) => {
+              const selected = option === form.packaging;
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => setForm((prev) => ({ ...prev, packaging: option }))}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={styles.row}>
+            <TextInput
+              value={newPackaging}
+              onChangeText={setNewPackaging}
+              placeholder="Agregar empaque"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={[styles.input, styles.flexInput]}
+            />
+            <Pressable style={styles.addOptionBtn} onPress={createPackagingOption}>
+              <Text style={styles.addOptionText}>Agregar</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.fieldLabel}>Vendedor</Text>
+          <TextInput
+            value={form.seller}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, seller: value }))}
+            placeholder="Vendedor"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
+          />
+
+          <Text style={styles.fieldLabel}>Descripcion</Text>
+          <TextInput
+            value={form.description}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, description: value }))}
+            placeholder="Descripcion"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
+          />
+
+          <PrimaryButton label={editingId ? 'Guardar producto' : 'Crear producto'} onPress={save} />
+          <PrimaryButton label="Cancelar" onPress={closeForm} />
         </View>
-      </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Tabla de productos</Text>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Filtrar productos"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
+        <View style={styles.searchRow}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Filtrar productos"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={[styles.input, styles.searchInput]}
+          />
+          <Pressable
+            style={styles.filterButton}
+            onPress={() => setShowColumnFilters((prev) => !prev)}
+          >
+            <Ionicons name="options-outline" size={18} color="#0f172a" />
+          </Pressable>
+        </View>
+        {showColumnFilters ? (
+          <View style={styles.chipsWrap}>
+            {ALL_COLUMNS.map((column) => {
+              const selected = visibleColumns.includes(column.key);
+              return (
+                <Pressable
+                  key={column.key}
+                  onPress={() => toggleColumn(column.key)}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{column.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         {filteredProducts.map((item) => (
           <View key={item.id} style={styles.tableRow}>
             {visibleColumns.includes('id') ? <Text style={styles.cell}>{item.id}</Text> : null}
@@ -455,14 +478,6 @@ export default function AdminProductsScreen() {
         ))}
         {filteredProducts.length === 0 ? <Text style={styles.emptyText}>No hay productos para ese filtro.</Text> : null}
       </View>
-
-      {selectedProduct ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Editando: {selectedProduct.name}</Text>
-          <Text style={styles.metaText}>ID: {selectedProduct.id}</Text>
-          <Text style={styles.metaText}>Precio: {formatCurrency(selectedProduct.price)}</Text>
-        </View>
-      ) : null}
     </ScrollView>
   );
 }
@@ -473,10 +488,31 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: '#f9fafb',
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 24,
     fontWeight: '700',
     color: '#111827',
+  },
+  addButton: {
+    borderWidth: 1,
+    borderColor: '#111827',
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  addButtonText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   card: {
     backgroundColor: '#ffffff',
@@ -505,6 +541,24 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     backgroundColor: '#f8fafc',
     color: '#111827',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+  },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   formLabel: {
     color: '#374151',
@@ -595,8 +649,5 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     paddingVertical: 12,
-  },
-  metaText: {
-    color: '#4b5563',
   },
 });

@@ -35,6 +35,10 @@ export default function AdminLayout() {
             name="products/index"
             options={{ title: 'Productos', headerShown: true, headerBackButtonDisplayMode: 'default' }}
           />
+          <Stack.Screen
+            name="profile"
+            options={{ title: 'Perfil admin', headerShown: true, headerBackButtonDisplayMode: 'default' }}
+          />
         </Stack>
       </SafeAreaView>
     </RoleGate>

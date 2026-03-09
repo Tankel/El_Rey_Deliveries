@@ -22,6 +22,7 @@ const USERS_SEED: AdminUser[] = [
   {
     id: 'admin-demo',
     username: 'admin-demo',
+    password: 'admin123',
     fullName: 'Administrador Demo',
     email: 'admin@elrey.local',
     phone: '+52 555 000 0001',
@@ -32,6 +33,7 @@ const USERS_SEED: AdminUser[] = [
   {
     id: 'cliente-demo',
     username: 'cliente-demo',
+    password: 'cliente123',
     fullName: 'Cliente Demo',
     email: 'cliente@elrey.local',
     phone: '+52 555 000 0002',
@@ -42,6 +44,7 @@ const USERS_SEED: AdminUser[] = [
   {
     id: 'driver-juan',
     username: 'driver-juan',
+    password: 'driver123',
     fullName: 'Juan Perez',
     email: 'driver-juan@elrey.local',
     phone: '+52 555 000 0003',
@@ -59,6 +62,13 @@ function slugify(text: string) {
     .replace(/[^a-z0-9-]/g, '');
 }
 
+function normalizeUser(user: AdminUser): AdminUser {
+  return {
+    ...user,
+    password: user.password?.trim() || '123456',
+  };
+}
+
 export function UsersProvider({ children }: PropsWithChildren) {
   const [users, setUsers] = useState<AdminUser[]>(USERS_SEED);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -66,7 +76,7 @@ export function UsersProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const hydrate = async () => {
       const stored = await jsonStorage.read<AdminUser[]>(USERS_STORAGE_KEY, USERS_SEED);
-      setUsers(stored);
+      setUsers(stored.map((item) => normalizeUser(item)));
       setIsHydrated(true);
     };
     void hydrate();
@@ -90,6 +100,12 @@ export function UsersProvider({ children }: PropsWithChildren) {
         if (!payload.fullName.trim()) {
           return { ok: false, message: 'El nombre completo es obligatorio.' };
         }
+        if (!payload.password.trim()) {
+          return { ok: false, message: 'La contraseña es obligatoria.' };
+        }
+        if (payload.password.trim().length < 6) {
+          return { ok: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
+        }
 
         const username = payload.username.trim().toLowerCase();
         const exists = users.some((user) => user.username === username);
@@ -101,6 +117,7 @@ export function UsersProvider({ children }: PropsWithChildren) {
           ...payload,
           id: slugify(username) || `user-${Date.now()}`,
           username,
+          password: payload.password.trim(),
           createdAt: new Date().toISOString(),
         };
         setUsers((prev) => [next, ...prev]);
@@ -120,6 +137,10 @@ export function UsersProvider({ children }: PropsWithChildren) {
           }
         }
 
+        if (payload.password?.trim() && payload.password.trim().length < 6) {
+          return { ok: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
+        }
+
         setUsers((prev) =>
           prev.map((user) =>
             user.id === userId
@@ -130,6 +151,7 @@ export function UsersProvider({ children }: PropsWithChildren) {
                   fullName: payload.fullName?.trim() ?? user.fullName,
                   email: payload.email?.trim() ?? user.email,
                   phone: payload.phone?.trim() ?? user.phone,
+                  password: payload.password?.trim() || user.password,
                 }
               : user,
           ),

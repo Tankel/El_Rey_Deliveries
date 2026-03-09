@@ -6,7 +6,6 @@ import { Order, OrderStatus } from '@/types/domain';
 import { es } from '@/i18n/es';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
-import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 
 type DeliveryFilter = 'ACTIVAS' | 'COMPLETADAS' | 'CANCELADAS';
 
@@ -47,7 +46,7 @@ function applyFilter(order: Order, filter: DeliveryFilter) {
 }
 
 export default function DriverDeliveriesScreen() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { orders } = useOrders();
   const [filter, setFilter] = useState<DeliveryFilter>('ACTIVAS');
 
@@ -117,7 +116,6 @@ export default function DriverDeliveriesScreen() {
         windowSize={5}
         ListEmptyComponent={<Text style={styles.emptyText}>{es.driver.noAssignedOrders}</Text>}
       />
-      <PrimaryButton label={es.common.logout} onPress={signOut} />
     </View>
   );
 }

@@ -39,19 +39,29 @@ export default function DriverLayout() {
               ),
             }}
           />
-          <Tabs.Screen
-            name="inbox"
-            options={{
-              title: es.navigation.driverInbox,
-              tabBarLabel: 'Nuevas',
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="notifications-outline" color={color} size={size} />
-              ),
-              tabBarBadge: unreadDriverNotifications > 0 ? unreadDriverNotifications : undefined,
-            }}
-          />
-        </Tabs>
-      </SafeAreaView>
-    </RoleGate>
+        <Tabs.Screen
+          name="inbox"
+          options={{
+            title: es.navigation.driverInbox,
+            tabBarLabel: 'Nuevas',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="notifications-outline" color={color} size={size} />
+            ),
+            tabBarBadge: unreadDriverNotifications > 0 ? unreadDriverNotifications : undefined,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: es.navigation.profile,
+            tabBarLabel: 'Perfil',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="person-circle-outline" color={color} size={size} />
+            ),
+          }}
+        />
+      </Tabs>
+    </SafeAreaView>
+  </RoleGate>
   );
 }

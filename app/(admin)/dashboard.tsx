@@ -3,20 +3,81 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AdminNotificationsBell } from '@/components/admin/AdminNotificationsBell';
 import { useCatalog } from '@/context/CatalogContext';
 import { useUsers } from '@/context/UsersContext';
-import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
-import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
+import { useToast } from '@/ui/feedback/ToastContext';
+
+function asCsv(headers: string[], rows: Array<Array<string | number>>) {
+  const head = headers.join(',');
+  const body = rows.map((row) => row.map((item) => `"${String(item).replaceAll('"', '""')}"`).join(','));
+  return [head, ...body].join('\n');
+}
 
 export default function AdminDashboardScreen() {
-  const { signOut } = useAuth();
   const { orders } = useOrders();
   const { users } = useUsers();
   const { products } = useCatalog();
+  const { showToast } = useToast();
 
   const pending = orders.filter((order) => order.status === 'PENDIENTE').length;
   const activeRoute = orders.filter((order) => order.status === 'EN_CAMINO').length;
   const delivered = orders.filter((order) => order.status === 'ENTREGADO').length;
   const cancelled = orders.filter((order) => order.status === 'CANCELADO').length;
+  const assigned = orders.filter((order) => order.status === 'ASIGNADO').length;
+  const deliveredRevenue = orders
+    .filter((order) => order.status === 'ENTREGADO')
+    .reduce((acc, item) => acc + item.total, 0);
+  const activeUsers = users.filter((item) => item.isActive).length;
+
+  const exportOrdersCsv = () => {
+    const csv = asCsv(
+      ['id', 'cliente', 'estado', 'total', 'direccion', 'repartidor', 'actualizado'],
+      orders.map((item) => [
+        item.id,
+        item.clientName,
+        item.status,
+        item.total,
+        item.address,
+        item.assignedDriverName ?? '',
+        item.updatedAt,
+      ]),
+    );
+    console.log('CSV_ORDERS\n' + csv);
+    showToast({ type: 'success', message: 'CSV de pedidos generado (ver consola).' });
+  };
+
+  const exportUsersCsv = () => {
+    const csv = asCsv(
+      ['id', 'username', 'nombre', 'rol', 'activo', 'correo', 'telefono'],
+      users.map((item) => [
+        item.id,
+        item.username,
+        item.fullName,
+        item.role,
+        item.isActive ? 'si' : 'no',
+        item.email,
+        item.phone,
+      ]),
+    );
+    console.log('CSV_USERS\n' + csv);
+    showToast({ type: 'success', message: 'CSV de usuarios generado (ver consola).' });
+  };
+
+  const exportProductsCsv = () => {
+    const csv = asCsv(
+      ['id', 'nombre', 'marca', 'categoria', 'precio', 'stock', 'descuento'],
+      products.map((item) => [
+        item.id,
+        item.name,
+        item.brand,
+        item.category,
+        item.price,
+        item.stock ?? 0,
+        item.discountPercent,
+      ]),
+    );
+    console.log('CSV_PRODUCTS\n' + csv);
+    showToast({ type: 'success', message: 'CSV de productos generado (ver consola).' });
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -36,12 +97,28 @@ export default function AdminDashboardScreen() {
           <Text style={styles.kpiLabel}>En camino</Text>
         </View>
         <View style={styles.kpiCard}>
+          <Text style={styles.kpiValue}>{assigned}</Text>
+          <Text style={styles.kpiLabel}>Asignados</Text>
+        </View>
+        <View style={styles.kpiCard}>
           <Text style={styles.kpiValue}>{delivered}</Text>
           <Text style={styles.kpiLabel}>Entregados</Text>
         </View>
         <View style={styles.kpiCard}>
           <Text style={styles.kpiValue}>{cancelled}</Text>
           <Text style={styles.kpiLabel}>Cancelados</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiValue}>${deliveredRevenue.toFixed(0)}</Text>
+          <Text style={styles.kpiLabel}>Venta entregada</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiValue}>{activeUsers}</Text>
+          <Text style={styles.kpiLabel}>Usuarios activos</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiValue}>{products.length}</Text>
+          <Text style={styles.kpiLabel}>Productos</Text>
         </View>
       </View>
 
@@ -65,9 +142,26 @@ export default function AdminDashboardScreen() {
             <Text style={styles.navMeta}>Total: {products.length}</Text>
           </Pressable>
         </Link>
+        <Link href="/(admin)/profile" asChild>
+          <Pressable style={styles.navCard}>
+            <Text style={styles.navTitle}>Perfil admin</Text>
+            <Text style={styles.navMeta}>Configuracion y cierre de sesion</Text>
+          </Pressable>
+        </Link>
       </View>
 
-      <PrimaryButton label="Cerrar sesion" onPress={signOut} />
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Exportaciones (CSV)</Text>
+        <Pressable style={styles.exportBtn} onPress={exportOrdersCsv}>
+          <Text style={styles.exportBtnText}>Exportar pedidos</Text>
+        </Pressable>
+        <Pressable style={styles.exportBtn} onPress={exportUsersCsv}>
+          <Text style={styles.exportBtnText}>Exportar usuarios</Text>
+        </Pressable>
+        <Pressable style={styles.exportBtn} onPress={exportProductsCsv}>
+          <Text style={styles.exportBtnText}>Exportar productos</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -137,5 +231,17 @@ const styles = StyleSheet.create({
   },
   navMeta: {
     color: '#4b5563',
+  },
+  exportBtn: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  exportBtnText: {
+    color: '#0f172a',
+    fontWeight: '700',
   },
 });

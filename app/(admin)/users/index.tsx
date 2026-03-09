@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { AdminUser } from '@/models/AdminUser';
 import { useUsers } from '@/context/UsersContext';
@@ -19,6 +20,7 @@ const ALL_COLUMNS: Array<{ key: UserColumn; label: string }> = [
 
 type UserFormState = {
   username: string;
+  password: string;
   fullName: string;
   email: string;
   phone: string;
@@ -28,6 +30,7 @@ type UserFormState = {
 
 const EMPTY_FORM: UserFormState = {
   username: '',
+  password: '',
   fullName: '',
   email: '',
   phone: '',
@@ -46,6 +49,8 @@ export default function AdminUsersScreen() {
     'role',
     'email',
   ]);
+  const [showColumnFilters, setShowColumnFilters] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<UserFormState>(EMPTY_FORM);
 
@@ -62,41 +67,53 @@ export default function AdminUsersScreen() {
     );
   }, [query, users]);
 
-  const selectedUser = editingId ? users.find((user) => user.id === editingId) : null;
-
   const toggleColumn = (column: UserColumn) => {
     setVisibleColumns((prev) =>
       prev.includes(column) ? prev.filter((item) => item !== column) : [...prev, column],
     );
   };
 
-  const startCreate = () => {
+  const openCreateForm = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setIsFormOpen(true);
   };
 
   const startEdit = (user: AdminUser) => {
     setEditingId(user.id);
     setForm({
       username: user.username,
+      password: '',
       fullName: user.fullName,
       email: user.email,
       phone: user.phone,
       role: user.role,
       isActive: user.isActive,
     });
+    setIsFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
   };
 
   const save = () => {
     const result = editingId
-      ? updateUser(editingId, form)
+      ? updateUser(editingId, {
+          ...form,
+          username: form.username.trim().toLowerCase(),
+          password: form.password.trim() || undefined,
+        })
       : createUser({
           ...form,
           username: form.username.trim().toLowerCase(),
+          password: form.password.trim(),
         });
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     if (result.ok) {
-      startCreate();
+      closeForm();
     }
   };
 
@@ -104,105 +121,131 @@ export default function AdminUsersScreen() {
     const result = deleteUser(userId);
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     if (editingId === userId) {
-      startCreate();
+      closeForm();
     }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Usuarios</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Usuarios</Text>
+        <Pressable style={styles.addButton} onPress={openCreateForm}>
+          <Ionicons name="add-circle-outline" size={18} color="#ffffff" />
+          <Text style={styles.addButtonText}>Agregar usuario</Text>
+        </Pressable>
+      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{editingId ? 'Editar usuario' : 'Agregar usuario'}</Text>
-        <Text style={styles.fieldLabel}>Username</Text>
-        <TextInput
-          value={form.username}
-          onChangeText={(value) => setForm((prev) => ({ ...prev, username: value }))}
-          placeholder="Username"
-          autoCapitalize="none"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
-        <Text style={styles.fieldLabel}>Nombre completo</Text>
-        <TextInput
-          value={form.fullName}
-          onChangeText={(value) => setForm((prev) => ({ ...prev, fullName: value }))}
-          placeholder="Nombre completo"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
-        <Text style={styles.fieldLabel}>Correo</Text>
-        <TextInput
-          value={form.email}
-          onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
-          placeholder="Correo"
-          autoCapitalize="none"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
-        <Text style={styles.fieldLabel}>Telefono</Text>
-        <TextInput
-          value={form.phone}
-          onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value }))}
-          placeholder="Telefono"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
-
-        <View style={styles.roleRow}>
-          {(['CLIENT', 'ADMIN', 'DRIVER'] as UserRole[]).map((role) => {
-            const selected = role === form.role;
-            return (
-              <Pressable
-                key={role}
-                onPress={() => setForm((prev) => ({ ...prev, role }))}
-                style={[styles.chip, selected && styles.chipSelected]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{role}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.switchRow}>
-          <Text>Activo</Text>
-          <Switch
-            value={form.isActive}
-            onValueChange={(value) => setForm((prev) => ({ ...prev, isActive: value }))}
+      {isFormOpen ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{editingId ? 'Editar usuario' : 'Agregar usuario'}</Text>
+          <Text style={styles.fieldLabel}>Username</Text>
+          <TextInput
+            value={form.username}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, username: value }))}
+            placeholder="Username"
+            autoCapitalize="none"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
           />
-        </View>
+          <Text style={styles.fieldLabel}>
+            {editingId ? 'Nueva contraseña (opcional)' : 'Contraseña'}
+          </Text>
+          <TextInput
+            value={form.password}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, password: value }))}
+            placeholder={editingId ? 'Dejar vacio para conservar' : 'Minimo 6 caracteres'}
+            secureTextEntry
+            autoCapitalize="none"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
+          />
+          <Text style={styles.fieldLabel}>Nombre completo</Text>
+          <TextInput
+            value={form.fullName}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, fullName: value }))}
+            placeholder="Nombre completo"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
+          />
+          <Text style={styles.fieldLabel}>Correo</Text>
+          <TextInput
+            value={form.email}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
+            placeholder="Correo"
+            autoCapitalize="none"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
+          />
+          <Text style={styles.fieldLabel}>Telefono</Text>
+          <TextInput
+            value={form.phone}
+            onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value }))}
+            placeholder="Telefono"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={styles.input}
+          />
 
-        <PrimaryButton label={editingId ? 'Guardar usuario' : 'Crear usuario'} onPress={save} />
-        {editingId ? <PrimaryButton label="Cancelar edicion" onPress={startCreate} /> : null}
-      </View>
+          <View style={styles.roleRow}>
+            {(['CLIENT', 'ADMIN', 'DRIVER'] as UserRole[]).map((role) => {
+              const selected = role === form.role;
+              return (
+                <Pressable
+                  key={role}
+                  onPress={() => setForm((prev) => ({ ...prev, role }))}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{role}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Columnas visibles</Text>
-        <View style={styles.chipsWrap}>
-          {ALL_COLUMNS.map((column) => {
-            const selected = visibleColumns.includes(column.key);
-            return (
-              <Pressable
-                key={column.key}
-                onPress={() => toggleColumn(column.key)}
-                style={[styles.chip, selected && styles.chipSelected]}
-              >
-                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{column.label}</Text>
-              </Pressable>
-            );
-          })}
+          <View style={styles.switchRow}>
+            <Text>Activo</Text>
+            <Switch
+              value={form.isActive}
+              onValueChange={(value) => setForm((prev) => ({ ...prev, isActive: value }))}
+            />
+          </View>
+
+          <PrimaryButton label={editingId ? 'Guardar usuario' : 'Crear usuario'} onPress={save} />
+          <PrimaryButton label="Cancelar" onPress={closeForm} />
         </View>
-      </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Tabla de usuarios</Text>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Filtrar usuarios"
-          placeholderTextColor={PLACEHOLDER_COLOR}
-          style={styles.input}
-        />
+        <View style={styles.searchRow}>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Filtrar usuarios"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            style={[styles.input, styles.searchInput]}
+          />
+          <Pressable
+            style={styles.filterButton}
+            onPress={() => setShowColumnFilters((prev) => !prev)}
+          >
+            <Ionicons name="options-outline" size={18} color="#0f172a" />
+          </Pressable>
+        </View>
+        {showColumnFilters ? (
+          <View style={styles.chipsWrap}>
+            {ALL_COLUMNS.map((column) => {
+              const selected = visibleColumns.includes(column.key);
+              return (
+                <Pressable
+                  key={column.key}
+                  onPress={() => toggleColumn(column.key)}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{column.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         {filteredUsers.map((item) => (
           <View key={item.id} style={styles.row}>
             {visibleColumns.includes('username') ? <Text style={styles.cell}>{item.username}</Text> : null}
@@ -225,14 +268,6 @@ export default function AdminUsersScreen() {
         ))}
         {filteredUsers.length === 0 ? <Text style={styles.emptyText}>No hay usuarios para ese filtro.</Text> : null}
       </View>
-
-      {selectedUser ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Editando: {selectedUser.fullName}</Text>
-          <Text style={styles.metaText}>ID: {selectedUser.id}</Text>
-          <Text style={styles.metaText}>Creado: {new Date(selectedUser.createdAt).toLocaleString('es-MX')}</Text>
-        </View>
-      ) : null}
     </ScrollView>
   );
 }
@@ -243,10 +278,31 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: '#f9fafb',
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 24,
     fontWeight: '700',
     color: '#111827',
+  },
+  addButton: {
+    borderWidth: 1,
+    borderColor: '#111827',
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  addButtonText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   card: {
     backgroundColor: '#ffffff',
@@ -275,6 +331,24 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     backgroundColor: '#f8fafc',
     color: '#111827',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+  },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   roleRow: {
     flexDirection: 'row',
@@ -348,8 +422,5 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     paddingVertical: 12,
-  },
-  metaText: {
-    color: '#4b5563',
   },
 });

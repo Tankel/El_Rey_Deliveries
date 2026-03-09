@@ -8,11 +8,10 @@ import { getCategories } from '@/data/products';
 import { es } from '@/i18n/es';
 import { Product } from '@/models/Product';
 import { useAuth } from '@/state/AuthContext';
-import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
 
 export default function ClientHomeScreen() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { products, isHydrated: isCatalogHydrated } = useCatalog();
   const { itemCount, isHydrated, addItem } = useCart();
   const { showToast } = useToast();
@@ -110,7 +109,6 @@ export default function ClientHomeScreen() {
         />
       )}
 
-      <PrimaryButton label={es.common.logout} onPress={signOut} />
     </View>
   );
 }
