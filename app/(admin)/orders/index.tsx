@@ -7,9 +7,9 @@ import { OrderStatus } from '@/types/domain';
 import { useOrders } from '@/state/OrdersContext';
 import { useToast } from '@/ui/feedback/ToastContext';
 
-type OrderFilter = 'TODOS' | 'ACTIVOS' | 'FINALIZADOS' | 'CANCELADOS';
+type OrderFilter = 'TODOS' | 'PENDIENTES' | 'ACTIVOS' | 'FINALIZADOS' | 'CANCELADOS';
 
-const FILTERS: OrderFilter[] = ['TODOS', 'ACTIVOS', 'FINALIZADOS', 'CANCELADOS'];
+const FILTERS: OrderFilter[] = ['TODOS', 'PENDIENTES', 'ACTIVOS', 'FINALIZADOS', 'CANCELADOS'];
 
 function formatCurrency(value: number) {
   return `$${value.toFixed(2)}`;
@@ -45,6 +45,9 @@ function applyFilter(status: OrderStatus, filter: OrderFilter) {
   }
   if (filter === 'ACTIVOS') {
     return status !== 'ENTREGADO' && status !== 'CANCELADO';
+  }
+  if (filter === 'PENDIENTES') {
+    return status === 'PENDIENTE';
   }
   if (filter === 'FINALIZADOS') {
     return status === 'ENTREGADO';
@@ -135,6 +138,9 @@ export default function AdminOrdersScreen() {
               </View>
               <Text style={styles.metaText}>Cliente: {item.clientName}</Text>
               <Text style={styles.metaText}>{item.address}</Text>
+              <Text style={styles.metaText}>
+                Pago: {item.paymentMethod ?? 'N/A'} - {item.paymentStatus ?? 'N/A'}
+              </Text>
               <Text style={styles.totalText}>{formatCurrency(item.total)}</Text>
 
               <View style={styles.actions}>

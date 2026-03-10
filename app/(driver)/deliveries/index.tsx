@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 10,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   headerRow: {
     flexDirection: 'row',
@@ -205,3 +205,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+

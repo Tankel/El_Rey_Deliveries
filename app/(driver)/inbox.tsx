@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 10,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   title: {
     fontSize: 22,
@@ -95,3 +95,4 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
 });
+

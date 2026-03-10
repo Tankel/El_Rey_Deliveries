@@ -7,7 +7,7 @@ import { RoleGate } from '@/navigation/RoleGate';
 export default function DriverLayout() {
   return (
     <RoleGate allow={['DRIVER']}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top']}>
         <Tabs
           screenOptions={{
             headerShown: false,
@@ -54,3 +54,4 @@ export default function DriverLayout() {
     </RoleGate>
   );
 }
+

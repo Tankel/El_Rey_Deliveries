@@ -1,6 +1,15 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useCatalog } from '@/context/CatalogContext';
 import { useCart } from '@/context/CartContext';
 import { formatProductPresentation } from '@/models/Product';
@@ -14,7 +23,7 @@ function formatCurrency(value: number) {
 export default function ProductDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const { products, isHydrated } = useCatalog();
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const { showToast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const product = useMemo(
@@ -47,12 +56,19 @@ export default function ProductDetailScreen() {
     );
   }
 
+  const hasStock = product.stock !== undefined;
+  const currentStock = product.stock ?? 0;
+  const outOfStock = hasStock && currentStock <= 0;
+  const lowStock = hasStock && currentStock > 0 && currentStock <= 5;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
       <Text style={styles.name}>{product.name}</Text>
       <Text style={styles.metaText}>{product.brand}</Text>
       <Text style={styles.metaText}>{formatProductPresentation(product)}</Text>
+      {outOfStock ? <Text style={styles.stockOutText}>Sin stock</Text> : null}
+      {lowStock ? <Text style={styles.stockLowText}>Ultimas unidades: {currentStock}</Text> : null}
 
       <View style={styles.priceRow}>
         <Text style={styles.price}>{formatCurrency(product.price)}</Text>
@@ -73,7 +89,17 @@ export default function ProductDetailScreen() {
             <Text style={styles.stepText}>-</Text>
           </Pressable>
           <Text style={styles.qtyValue}>{quantity}</Text>
-          <Pressable style={styles.stepButton} onPress={() => setQuantity((prev) => prev + 1)}>
+          <Pressable
+            style={styles.stepButton}
+            onPress={() =>
+              setQuantity((prev) => {
+                if (!hasStock) {
+                  return prev + 1;
+                }
+                return Math.min(prev + 1, Math.max(currentStock, 1));
+              })
+            }
+          >
             <Text style={styles.stepText}>+</Text>
           </Pressable>
         </View>
@@ -97,10 +123,28 @@ export default function ProductDetailScreen() {
       </View>
 
       <PrimaryButton
-        label={`Agregar (${quantity})`}
+        label={outOfStock ? 'Sin stock' : `Agregar (${quantity})`}
+        disabled={outOfStock}
         onPress={() => {
-          const result = addItem(product, quantity);
-          showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+          const existingQuantity = items.find((item) => item.product.id === product.id)?.quantity ?? 0;
+          const addNow = () => {
+            const result = addItem(product, quantity);
+            showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+          };
+
+          if (existingQuantity > 0) {
+            Alert.alert(
+              'Producto ya en carrito',
+              `Ya llevas ${existingQuantity} en el carrito. Quieres agregar ${quantity} mas?`,
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Agregar', onPress: addNow },
+              ],
+            );
+            return;
+          }
+
+          addNow();
         }}
       />
     </ScrollView>
@@ -111,7 +155,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   centerBox: {
     flex: 1,
@@ -162,6 +206,14 @@ const styles = StyleSheet.create({
   savings: {
     fontWeight: '600',
     color: '#111827',
+  },
+  stockOutText: {
+    color: '#991b1b',
+    fontWeight: '700',
+  },
+  stockLowText: {
+    color: '#9a3412',
+    fontWeight: '700',
   },
   qtyRow: {
     gap: 8,

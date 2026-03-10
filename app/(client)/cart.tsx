@@ -1,4 +1,5 @@
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useCart } from '@/context/CartContext';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
@@ -8,6 +9,7 @@ function formatCurrency(value: number) {
 }
 
 export default function CartScreen() {
+  const router = useRouter();
   const {
     items,
     isHydrated,
@@ -15,10 +17,31 @@ export default function CartScreen() {
     totalSavings,
     updateItemQuantity,
     removeItem,
-    confirmOrder,
     clearCart,
   } = useCart();
   const { showToast } = useToast();
+
+  const handleConfirmOrder = () => {
+    if (items.length === 0) {
+      showToast({ message: 'No puedes confirmar un pedido vacio.', type: 'error' });
+      return;
+    }
+    router.push('/(client)/payment');
+  };
+
+  const handleClearCart = () => {
+    Alert.alert('Vaciar carrito', 'Estas seguro que deseas vaciar el carrito?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Si, vaciar',
+        style: 'destructive',
+        onPress: () => {
+          clearCart();
+          showToast({ message: 'Carrito vaciado.', type: 'success' });
+        },
+      },
+    ]);
+  };
 
   if (!isHydrated) {
     return (
@@ -92,17 +115,11 @@ export default function CartScreen() {
 
       <PrimaryButton
         label="Confirmar pedido"
-        onPress={() => {
-          const result = confirmOrder();
-          showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
-        }}
+        onPress={handleConfirmOrder}
       />
       <PrimaryButton
         label="Vaciar carrito"
-        onPress={() => {
-          clearCart();
-          showToast({ message: 'Carrito vaciado.', type: 'success' });
-        }}
+        onPress={handleClearCart}
       />
     </View>
   );
@@ -113,7 +130,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   title: {
     fontSize: 24,
@@ -196,3 +213,4 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 });
+

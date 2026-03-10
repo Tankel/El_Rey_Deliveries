@@ -77,6 +77,10 @@ export default function AdminOrderDetailScreen() {
         <Text>{order.clientName}</Text>
         <Text style={styles.label}>Direccion</Text>
         <Text>{order.address}</Text>
+        <Text style={styles.label}>Metodo de pago</Text>
+        <Text>{order.paymentMethod ?? 'N/A'}</Text>
+        <Text style={styles.label}>Estatus de pago</Text>
+        <Text>{order.paymentStatus ?? 'N/A'}</Text>
         <Text style={styles.label}>Total</Text>
         <Text style={styles.totalText}>${order.total.toFixed(2)}</Text>
       </View>

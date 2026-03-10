@@ -46,6 +46,7 @@ function ensureProductDiscount(product: Product): Product {
   return {
     ...product,
     discountPercent: computeDiscountPercent(product.price, product.originalPrice),
+    stock: typeof product.stock === 'number' ? Math.max(product.stock, 0) : 20,
   };
 }
 
@@ -140,6 +141,9 @@ export function CatalogProvider({ children }: PropsWithChildren) {
         if (payload.originalPrice < payload.price) {
           return { ok: false, message: 'El precio original debe ser mayor o igual al precio actual.' };
         }
+        if ((payload.stock ?? 0) < 0) {
+          return { ok: false, message: 'El stock no puede ser negativo.' };
+        }
 
         const baseId = payload.id?.trim() || `prod-${slugify(payload.name)}-${Date.now()}`;
         const exists = products.some((item) => item.id === baseId);
@@ -176,6 +180,9 @@ export function CatalogProvider({ children }: PropsWithChildren) {
         }
         if (merged.originalPrice < merged.price) {
           return { ok: false, message: 'El precio original debe ser mayor o igual al precio actual.' };
+        }
+        if ((merged.stock ?? 0) < 0) {
+          return { ok: false, message: 'El stock no puede ser negativo.' };
         }
 
         setProducts((prev) => prev.map((item) => (item.id === productId ? merged : item)));

@@ -1,6 +1,16 @@
 import { Link } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { ProductCard } from '@/components/ProductCard';
 import { useCatalog } from '@/context/CatalogContext';
 import { useCart } from '@/context/CartContext';
@@ -13,7 +23,7 @@ import { useToast } from '@/ui/feedback/ToastContext';
 export default function ClientHomeScreen() {
   const { user } = useAuth();
   const { products, isHydrated: isCatalogHydrated } = useCatalog();
-  const { itemCount, isHydrated, addItem } = useCart();
+  const { itemCount, isHydrated, items, addItem } = useCart();
   const { showToast } = useToast();
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'Todos' | string>('Todos');
@@ -32,10 +42,28 @@ export default function ClientHomeScreen() {
 
   const handleAddProduct = useCallback(
     (product: Product) => {
-      const result = addItem(product, 1);
-      showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+      const existingQuantity = items.find((item) => item.product.id === product.id)?.quantity ?? 0;
+
+      const addAnother = () => {
+        const result = addItem(product, 1);
+        showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+      };
+
+      if (existingQuantity > 0) {
+        Alert.alert(
+          'Producto ya en carrito',
+          `Ya llevas ${existingQuantity} en el carrito. Quieres agregar otro?`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Agregar otro', onPress: addAnother },
+          ],
+        );
+        return;
+      }
+
+      addAnother();
     },
-    [addItem, showToast],
+    [addItem, items, showToast],
   );
 
   const renderProduct = useCallback(
@@ -118,7 +146,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   header: {
     gap: 6,
@@ -187,3 +215,4 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 });
+

@@ -1,8 +1,10 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { jsonStorage } from '@/core/storage/jsonStorage';
+import { useCatalog } from '@/context/CatalogContext';
 import { Product } from '@/models/Product';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
+import { PaymentMethod, PaymentStatus } from '@/types/domain';
 
 type CartItem = {
   product: Product;
@@ -17,6 +19,8 @@ type ActionResult = {
 type ConfirmOrderPayload = {
   address?: string;
   notes?: string;
+  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus;
 };
 
 type CartContextValue = {
@@ -49,6 +53,7 @@ export function CartProvider({ children }: PropsWithChildren) {
   const [isHydrated, setIsHydrated] = useState(false);
   const { user } = useAuth();
   const { createOrder } = useOrders();
+  const { products, updateProduct } = useCatalog();
 
   useEffect(() => {
     const hydrate = async () => {
@@ -78,10 +83,14 @@ export function CartProvider({ children }: PropsWithChildren) {
         if (quantity <= 0) {
           return { ok: false, message: 'La cantidad debe ser mayor a 0.' };
         }
-        if (product.stock !== undefined) {
+        const sourceProduct = products.find((item) => item.id === product.id) ?? product;
+        if (sourceProduct.stock !== undefined) {
           const existing = items.find((item) => item.product.id === product.id)?.quantity ?? 0;
-          if (existing + quantity > product.stock) {
-            return { ok: false, message: 'No hay stock suficiente para agregar esa cantidad.' };
+          if (sourceProduct.stock <= 0) {
+            return { ok: false, message: 'Este producto ya no tiene stock.' };
+          }
+          if (existing + quantity > sourceProduct.stock) {
+            return { ok: false, message: `Stock insuficiente. Disponible: ${sourceProduct.stock - existing}.` };
           }
         }
 
@@ -99,6 +108,17 @@ export function CartProvider({ children }: PropsWithChildren) {
               : item,
           );
         });
+
+        if (sourceProduct.stock !== undefined) {
+          const existing = items.find((item) => item.product.id === product.id)?.quantity ?? 0;
+          const remaining = sourceProduct.stock - (existing + quantity);
+          if (remaining <= 0) {
+            return { ok: true, message: 'Producto agregado. Ya alcanzaste el maximo disponible.' };
+          }
+          if (remaining <= 5) {
+            return { ok: true, message: `Producto agregado. Quedan pocas unidades (${remaining}).` };
+          }
+        }
 
         return { ok: true, message: 'Producto agregado al carrito.' };
       },
@@ -147,23 +167,56 @@ export function CartProvider({ children }: PropsWithChildren) {
           return { ok: false, message: 'Debes iniciar sesion para confirmar el pedido.' };
         }
 
+        for (const item of items) {
+          const sourceProduct = products.find((product) => product.id === item.product.id);
+          if (!sourceProduct || sourceProduct.stock === undefined) {
+            continue;
+          }
+          if (sourceProduct.stock <= 0) {
+            return { ok: false, message: `${item.product.name} ya no tiene stock.` };
+          }
+          if (item.quantity > sourceProduct.stock) {
+            return {
+              ok: false,
+              message: `Stock insuficiente para ${item.product.name}. Disponible: ${sourceProduct.stock}.`,
+            };
+          }
+        }
+
         const result = createOrder({
           clientId: user.id,
           clientName: user.username,
           address: payload?.address ?? 'Direccion pendiente de confirmar',
           total: items.reduce((total, item) => total + item.product.price * item.quantity, 0),
+          paymentMethod: payload?.paymentMethod ?? 'EFECTIVO',
+          paymentStatus: payload?.paymentStatus ?? 'PENDIENTE_PAGO',
+          items: items.map((item) => ({
+            productId: item.product.id,
+            productName: item.product.name,
+            quantity: item.quantity,
+            unitPrice: item.product.price,
+            lineTotal: item.product.price * item.quantity,
+          })),
           notes:
             payload?.notes ??
             items.map((item) => `${item.quantity}x ${item.product.name}`).join(', '),
         });
 
         if (result.ok) {
+          items.forEach((item) => {
+            const sourceProduct = products.find((product) => product.id === item.product.id);
+            if (!sourceProduct || sourceProduct.stock === undefined) {
+              return;
+            }
+            const nextStock = Math.max(sourceProduct.stock - item.quantity, 0);
+            updateProduct(sourceProduct.id, { stock: nextStock });
+          });
           setItems([]);
         }
         return result;
       },
     }),
-    [createOrder, isHydrated, items, user],
+    [createOrder, isHydrated, items, products, updateProduct, user],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

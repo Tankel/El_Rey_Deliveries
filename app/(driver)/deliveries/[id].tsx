@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 10,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   title: {
     fontSize: 22,

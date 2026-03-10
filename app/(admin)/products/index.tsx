@@ -1,6 +1,14 @@
 import { useMemo, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useCatalog } from '@/context/CatalogContext';
 import { Product, ProductCategory, ProductUnit } from '@/models/Product';
 import { useToast } from '@/ui/feedback/ToastContext';
@@ -109,6 +117,8 @@ export default function AdminProductsScreen() {
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM);
   const [newContainerType, setNewContainerType] = useState('');
   const [newPackaging, setNewPackaging] = useState('');
+  const [stockModalProductId, setStockModalProductId] = useState<string | null>(null);
+  const [stockInput, setStockInput] = useState('10');
   const scrollRef = useRef<ScrollView>(null);
 
   const containerOptions = useMemo(() => {
@@ -224,6 +234,39 @@ export default function AdminProductsScreen() {
       const value = newPackaging.trim();
       setForm((prev) => ({ ...prev, packaging: value }));
       setNewPackaging('');
+    }
+  };
+
+  const openStockModal = (productId: string) => {
+    setStockModalProductId(productId);
+    setStockInput('10');
+  };
+
+  const closeStockModal = () => {
+    setStockModalProductId(null);
+    setStockInput('10');
+  };
+
+  const applyStockIncrement = () => {
+    if (!stockModalProductId) {
+      return;
+    }
+    const toAdd = Math.floor(Number(stockInput));
+    if (!Number.isFinite(toAdd) || toAdd <= 0) {
+      showToast({ message: 'Ingresa una cantidad valida mayor a 0.', type: 'error' });
+      return;
+    }
+    const product = products.find((item) => item.id === stockModalProductId);
+    if (!product) {
+      showToast({ message: 'Producto no encontrado.', type: 'error' });
+      closeStockModal();
+      return;
+    }
+    const nextStock = (product.stock ?? 0) + toAdd;
+    const result = updateProduct(product.id, { stock: nextStock });
+    showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+    if (result.ok) {
+      closeStockModal();
     }
   };
 
@@ -479,6 +522,9 @@ export default function AdminProductsScreen() {
               <Text style={styles.cell}>-{item.discountPercent}%</Text>
             ) : null}
             <View style={styles.rowActions}>
+              <Pressable style={styles.actionBtn} onPress={() => openStockModal(item.id)}>
+                <Text style={styles.actionText}>Agregar stock</Text>
+              </Pressable>
               <Pressable style={styles.actionBtn} onPress={() => startEdit(item)}>
                 <Text style={styles.actionText}>Editar</Text>
               </Pressable>
@@ -490,6 +536,31 @@ export default function AdminProductsScreen() {
         ))}
         {filteredProducts.length === 0 ? <Text style={styles.emptyText}>No hay productos para ese filtro.</Text> : null}
       </View>
+
+      <Modal visible={Boolean(stockModalProductId)} transparent animationType="fade" onRequestClose={closeStockModal}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Agregar stock</Text>
+            <Text style={styles.modalText}>Cuantas unidades deseas agregar?</Text>
+            <TextInput
+              value={stockInput}
+              onChangeText={setStockInput}
+              keyboardType="numeric"
+              placeholder="Ej. 20"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={styles.input}
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalPrimaryButton} onPress={applyStockIncrement}>
+                <Text style={styles.modalPrimaryText}>Guardar</Text>
+              </Pressable>
+              <Pressable style={styles.modalSecondaryButton} onPress={closeStockModal}>
+                <Text style={styles.modalSecondaryText}>Cancelar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -634,7 +705,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 11,
+    minHeight: 42,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   saveButtonText: {
@@ -642,13 +714,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   cancelButton: {
-    flex: 1,
     borderWidth: 1,
     borderColor: '#d1d5db',
     backgroundColor: '#f3f4f6',
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    paddingHorizontal: 16,
+    minHeight: 42,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   cancelButtonText: {
@@ -694,5 +766,61 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     paddingVertical: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(17,24,39,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    padding: 14,
+    gap: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  modalText: {
+    color: '#4b5563',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  modalPrimaryButton: {
+    borderWidth: 1,
+    borderColor: '#111827',
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  modalPrimaryText: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  modalSecondaryButton: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 10,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  modalSecondaryText: {
+    color: '#374151',
+    fontWeight: '700',
   },
 });

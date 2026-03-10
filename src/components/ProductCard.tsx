@@ -14,15 +14,24 @@ function formatCurrency(value: number) {
 
 function ProductCardComponent({ product, onAdd }: Props) {
   const router = useRouter();
+  const hasStock = product.stock !== undefined;
+  const stock = product.stock ?? 0;
+  const outOfStock = hasStock && stock <= 0;
+  const lowStock = hasStock && stock > 0 && stock <= 5;
 
   return (
-    <Pressable style={styles.card} onPress={() => router.push(`/(client)/home/products/${product.id}`)}>
+    <Pressable
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      onPress={() => router.push(`/(client)/home/products/${product.id}`)}
+    >
       <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={2}>
           {product.name}
         </Text>
         <Text style={styles.presentation}>{formatProductPresentation(product)}</Text>
+        {outOfStock ? <Text style={styles.stockOutText}>Sin stock</Text> : null}
+        {lowStock ? <Text style={styles.stockLowText}>Ultimas unidades: {stock}</Text> : null}
         <View style={styles.priceRow}>
           <Text style={styles.price}>{formatCurrency(product.price)}</Text>
           <Text style={styles.originalPrice}>{formatCurrency(product.originalPrice)}</Text>
@@ -31,13 +40,18 @@ function ProductCardComponent({ product, onAdd }: Props) {
           </View>
         </View>
         <Pressable
-          style={styles.addButton}
+          style={({ pressed }) => [
+            styles.addButton,
+            outOfStock && styles.addButtonDisabled,
+            pressed && !outOfStock && styles.addButtonPressed,
+          ]}
           onPress={(event) => {
             event.stopPropagation();
             onAdd(product);
           }}
+          disabled={outOfStock}
         >
-          <Text style={styles.addButtonText}>Agregar</Text>
+          <Text style={styles.addButtonText}>{outOfStock ? 'Sin stock' : 'Agregar'}</Text>
         </Pressable>
       </View>
     </Pressable>
@@ -54,6 +68,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 12,
+  },
+  cardPressed: {
+    transform: [{ scale: 0.99 }],
+    opacity: 0.96,
   },
   image: {
     width: '100%',
@@ -72,6 +90,16 @@ const styles = StyleSheet.create({
   presentation: {
     color: '#4b5563',
     fontSize: 13,
+  },
+  stockOutText: {
+    color: '#991b1b',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  stockLowText: {
+    color: '#9a3412',
+    fontWeight: '700',
+    fontSize: 12,
   },
   priceRow: {
     flexDirection: 'row',
@@ -107,6 +135,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  addButtonPressed: {
+    backgroundColor: '#1f2937',
+    transform: [{ scale: 0.98 }],
+  },
+  addButtonDisabled: {
+    backgroundColor: '#9ca3af',
   },
   addButtonText: {
     color: '#ffffff',

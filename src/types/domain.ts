@@ -1,4 +1,6 @@
 export type UserRole = 'CLIENT' | 'ADMIN' | 'DRIVER';
+export type PaymentMethod = 'TARJETA' | 'EFECTIVO' | 'TRANSFERENCIA';
+export type PaymentStatus = 'PENDIENTE_PAGO' | 'PAGADO_SIMULADO' | 'RECHAZADO';
 
 export const ORDER_STATUSES = [
   'PENDIENTE',
@@ -30,6 +32,14 @@ export type DeliveryProof = {
   capturedByUserId?: string;
 };
 
+export type OrderItem = {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
 export type Order = {
   id: string;
   clientId: string;
@@ -38,6 +48,9 @@ export type Order = {
   notes?: string;
   status: OrderStatus;
   total: number;
+  items?: OrderItem[];
+  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus;
   assignedDriverId?: string;
   assignedDriverName?: string;
   statusHistory?: OrderStatusHistoryEntry[];

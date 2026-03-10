@@ -31,6 +31,8 @@ export async function exportAdminWorkbook(payload: ExportPayload): Promise<Expor
       id: item.id,
       cliente: item.clientName,
       estado: item.status,
+      metodo_pago: item.paymentMethod ?? 'N/A',
+      estatus_pago: item.paymentStatus ?? 'N/A',
       total: item.total,
       direccion: item.address,
       repartidor: item.assignedDriverName ?? '',

@@ -1,13 +1,16 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCart } from '@/context/CartContext';
 import { es } from '@/i18n/es';
 import { RoleGate } from '@/navigation/RoleGate';
 
 export default function ClientLayout() {
+  const { itemCount } = useCart();
+
   return (
     <RoleGate allow={['CLIENT']}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top']}>
         <Tabs
           screenOptions={{
             headerShown: false,
@@ -34,6 +37,12 @@ export default function ClientLayout() {
               title: es.navigation.cart,
               tabBarLabel: 'Carrito',
               tabBarIcon: ({ color, size }) => <Ionicons name="cart-outline" color={color} size={size} />,
+              tabBarBadge: itemCount > 0 ? itemCount : undefined,
+              tabBarBadgeStyle: {
+                backgroundColor: '#dc2626',
+                color: '#ffffff',
+                fontWeight: '700',
+              },
             }}
           />
           <Tabs.Screen
@@ -52,8 +61,18 @@ export default function ClientLayout() {
               tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" color={color} size={size} />,
             }}
           />
+          <Tabs.Screen
+            name="payment"
+            options={{
+              href: null,
+              title: 'Simulacion de pago',
+              headerShown: true,
+              headerBackButtonDisplayMode: 'default',
+            }}
+          />
         </Tabs>
       </SafeAreaView>
     </RoleGate>
   );
 }
+

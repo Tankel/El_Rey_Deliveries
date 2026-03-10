@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   title: {
     fontSize: 24,
@@ -77,3 +77,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+

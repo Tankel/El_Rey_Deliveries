@@ -5,8 +5,11 @@ import {
   DeliveryProof,
   DriverProfile,
   Order,
+  OrderItem,
   OrderStatus,
   OrderStatusHistoryEntry,
+  PaymentMethod,
+  PaymentStatus,
   UserRole,
 } from '@/types/domain';
 
@@ -16,6 +19,9 @@ type CreateOrderPayload = {
   address: string;
   total: number;
   notes?: string;
+  items?: OrderItem[];
+  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus;
 };
 
 type ActionResult = {
@@ -136,6 +142,8 @@ function normalizeOrder(order: Order): Order {
     createdAt,
     updatedAt,
     statusHistory,
+    paymentMethod: order.paymentMethod ?? 'EFECTIVO',
+    paymentStatus: order.paymentStatus ?? 'PENDIENTE_PAGO',
   };
 }
 
@@ -267,6 +275,9 @@ export function OrdersProvider({ children }: PropsWithChildren) {
           address: payload.address,
           total: payload.total,
           notes: payload.notes,
+          items: payload.items,
+          paymentMethod: payload.paymentMethod ?? 'EFECTIVO',
+          paymentStatus: payload.paymentStatus ?? 'PENDIENTE_PAGO',
           status: 'PENDIENTE',
           createdAt: timestamp,
           updatedAt: timestamp,

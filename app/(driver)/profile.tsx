@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
   centerBox: {
     flex: 1,
@@ -195,3 +195,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+

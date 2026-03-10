@@ -1,8 +1,9 @@
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AdminNotificationsBell } from '@/components/admin/AdminNotificationsBell';
 import { useCatalog } from '@/context/CatalogContext';
 import { useUsers } from '@/context/UsersContext';
+import { exportAdminPdfReport } from '@/services/export/adminPdfReport';
 import { exportAdminWorkbook } from '@/services/export/adminWorkbook';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
@@ -36,6 +37,7 @@ function MetricCard({ value, label, accent }: MetricCardProps) {
 }
 
 export default function AdminDashboardScreen() {
+  const router = useRouter();
   const { orders } = useOrders();
   const { users } = useUsers();
   const { products } = useCatalog();
@@ -52,34 +54,52 @@ export default function AdminDashboardScreen() {
     .reduce((acc, item) => acc + item.total, 0);
   const activeUsers = users.filter((item) => item.isActive).length;
   const failedLogins = auditLog.filter((item) => item.action === 'LOGIN_FAILED').length;
+  const paidOrders = orders.filter((order) => order.paymentStatus === 'PAGADO_SIMULADO').length;
+  const pendingPayments = orders.filter((order) => order.paymentStatus === 'PENDIENTE_PAGO').length;
+
+  const kpis = [
+    { indicador: 'Pedidos pendientes', valor: pending },
+    { indicador: 'Pedidos en camino', valor: activeRoute },
+    { indicador: 'Pedidos asignados', valor: assigned },
+    { indicador: 'Pedidos entregados', valor: delivered },
+    { indicador: 'Pedidos cancelados', valor: cancelled },
+    { indicador: 'Venta entregada', valor: deliveredRevenue.toFixed(2) },
+    { indicador: 'Usuarios activos', valor: activeUsers },
+    { indicador: 'Intentos fallidos login', valor: failedLogins },
+    { indicador: 'Pagos confirmados', valor: paidOrders },
+    { indicador: 'Pagos pendientes', valor: pendingPayments },
+  ];
 
   const exportXlsx = async () => {
     const result = await exportAdminWorkbook({
       orders,
       users,
       products,
-      kpis: [
-        { indicador: 'Pedidos pendientes', valor: pending },
-        { indicador: 'Pedidos en camino', valor: activeRoute },
-        { indicador: 'Pedidos asignados', valor: assigned },
-        { indicador: 'Pedidos entregados', valor: delivered },
-        { indicador: 'Pedidos cancelados', valor: cancelled },
-        { indicador: 'Venta entregada', valor: deliveredRevenue.toFixed(2) },
-        { indicador: 'Usuarios activos', valor: activeUsers },
-        { indicador: 'Intentos fallidos login', valor: failedLogins },
-      ],
+      kpis,
+    });
+    showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+  };
+
+  const exportPdf = async () => {
+    const result = await exportAdminPdfReport({
+      orders,
+      users,
+      products,
+      kpis,
     });
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.topBarCard}>
-        <View>
-          <Text style={styles.title}>Panel Admin</Text>
-          <Text style={styles.subtitle}>Control operativo y supervision del sistema</Text>
+      <View style={styles.topHeader}>
+        <Text style={styles.title}>Panel Admin</Text>
+        <View style={styles.bellWrap}>
+          <AdminNotificationsBell />
         </View>
-        <AdminNotificationsBell />
+      </View>
+      <View style={styles.topBarCard}>
+        <Text style={styles.subtitle}>Control operativo y supervision del sistema</Text>
       </View>
 
       <View style={styles.metricsGrid}>
@@ -103,34 +123,39 @@ export default function AdminDashboardScreen() {
           <Text style={styles.summaryLabel}>Login fallido</Text>
           <Text style={styles.summaryValue}>{failedLogins}</Text>
         </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Pagos confirmados</Text>
+          <Text style={styles.summaryValue}>{paidOrders}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Pagos pendientes</Text>
+          <Text style={styles.summaryValue}>{pendingPayments}</Text>
+        </View>
       </View>
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Modulos</Text>
-        <Link href="/(admin)/orders" asChild>
-          <Pressable style={styles.navButton}>
-            <Text style={styles.navButtonText}>Pedidos ({orders.length})</Text>
-            <Text style={styles.navButtonArrow}>›</Text>
-          </Pressable>
-        </Link>
-        <Link href="/(admin)/users" asChild>
-          <Pressable style={styles.navButton}>
-            <Text style={styles.navButtonText}>Usuarios ({users.length})</Text>
-            <Text style={styles.navButtonArrow}>›</Text>
-          </Pressable>
-        </Link>
-        <Link href="/(admin)/products" asChild>
-          <Pressable style={styles.navButton}>
-            <Text style={styles.navButtonText}>Productos ({products.length})</Text>
-            <Text style={styles.navButtonArrow}>›</Text>
-          </Pressable>
-        </Link>
+        <Pressable style={styles.navButton} onPress={() => router.push('/(admin)/orders')}>
+          <Text style={styles.navButtonText}>Pedidos ({orders.length})</Text>
+          <Text style={styles.navButtonArrow}>{'>'}</Text>
+        </Pressable>
+        <Pressable style={styles.navButton} onPress={() => router.push('/(admin)/users')}>
+          <Text style={styles.navButtonText}>Usuarios ({users.length})</Text>
+          <Text style={styles.navButtonArrow}>{'>'}</Text>
+        </Pressable>
+        <Pressable style={styles.navButton} onPress={() => router.push('/(admin)/products')}>
+          <Text style={styles.navButtonText}>Productos ({products.length})</Text>
+          <Text style={styles.navButtonArrow}>{'>'}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Exportacion</Text>
         <Pressable style={styles.primaryButton} onPress={exportXlsx}>
           <Text style={styles.primaryButtonText}>Exportar XLSX (pedidos, usuarios, productos, KPIs)</Text>
+        </Pressable>
+        <Pressable style={styles.secondaryButton} onPress={exportPdf}>
+          <Text style={styles.secondaryButtonText}>Exportar PDF (incluye pagos)</Text>
         </Pressable>
       </View>
 
@@ -155,16 +180,24 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: '#ffffff',
   },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  bellWrap: {
+    minWidth: 42,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   topBarCard: {
     backgroundColor: palette.card,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: palette.border,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   title: {
     fontSize: 26,
@@ -173,7 +206,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: palette.muted,
-    marginTop: 2,
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -270,6 +302,19 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     textAlign: 'center',
     fontWeight: '800',
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  secondaryButtonText: {
+    color: '#111827',
+    textAlign: 'center',
+    fontWeight: '700',
   },
   logItem: {
     borderWidth: 1,
