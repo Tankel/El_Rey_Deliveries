@@ -1,6 +1,8 @@
+import { memo, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useCart } from '@/context/CartContext';
+import { Product } from '@/models/Product';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
 import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
@@ -8,6 +10,42 @@ import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 function formatCurrency(value: number) {
   return `$${value.toFixed(2)}`;
 }
+
+type CartRowItem = {
+  product: Product;
+  quantity: number;
+};
+
+type CartItemRowProps = {
+  item: CartRowItem;
+  onDecrease: (item: CartRowItem) => void;
+  onIncrease: (item: CartRowItem) => void;
+  onRemove: (item: CartRowItem) => void;
+};
+
+const CartItemRow = memo(function CartItemRow({ item, onDecrease, onIncrease, onRemove }: CartItemRowProps) {
+  return (
+    <View style={styles.item}>
+      <Image source={{ uri: item.product.image }} style={styles.image} />
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>{item.product.name}</Text>
+        <Text style={styles.mutedText}>{formatCurrency(item.product.price)} c/u</Text>
+        <View style={styles.qtyRow}>
+          <Pressable style={styles.qtyButton} onPress={() => onDecrease(item)}>
+            <Text style={styles.qtyButtonText}>-</Text>
+          </Pressable>
+          <Text style={styles.qtyValue}>{item.quantity}</Text>
+          <Pressable style={styles.qtyButton} onPress={() => onIncrease(item)}>
+            <Text style={styles.qtyButtonText}>+</Text>
+          </Pressable>
+        </View>
+      </View>
+      <Pressable style={styles.removeButton} onPress={() => onRemove(item)}>
+        <Text style={styles.removeText}>Eliminar</Text>
+      </Pressable>
+    </View>
+  );
+});
 
 export default function CartScreen() {
   const router = useRouter();
@@ -44,6 +82,45 @@ export default function CartScreen() {
     ]);
   };
 
+  const handleDecrease = useCallback(
+    (item: CartRowItem) => {
+      const next = Math.max(item.quantity - 1, 1);
+      const result = updateItemQuantity(item.product.id, next);
+      if (!result.ok) {
+        showToast({ message: result.message, type: 'error' });
+      }
+    },
+    [showToast, updateItemQuantity],
+  );
+
+  const handleIncrease = useCallback(
+    (item: CartRowItem) => {
+      const result = updateItemQuantity(item.product.id, item.quantity + 1);
+      showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+    },
+    [showToast, updateItemQuantity],
+  );
+
+  const handleRemove = useCallback(
+    (item: CartRowItem) => {
+      const result = removeItem(item.product.id);
+      showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+    },
+    [removeItem, showToast],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: CartRowItem }) => (
+      <CartItemRow
+        item={item}
+        onDecrease={handleDecrease}
+        onIncrease={handleIncrease}
+        onRemove={handleRemove}
+      />
+    ),
+    [handleDecrease, handleIncrease, handleRemove],
+  );
+
   if (!isHydrated) {
     return (
       <View style={styles.centerBox}>
@@ -64,49 +141,12 @@ export default function CartScreen() {
             <Text style={styles.mutedText}>Tu carrito esta vacio.</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={styles.item}>
-            <Image source={{ uri: item.product.image }} style={styles.image} />
-            <View style={styles.itemInfo}>
-              <Text style={styles.itemName}>{item.product.name}</Text>
-              <Text style={styles.mutedText}>{formatCurrency(item.product.price)} c/u</Text>
-              <View style={styles.qtyRow}>
-                <Pressable
-                  style={styles.qtyButton}
-                  onPress={() => {
-                    const next = Math.max(item.quantity - 1, 1);
-                    const result = updateItemQuantity(item.product.id, next);
-                    if (!result.ok) {
-                      showToast({ message: result.message, type: 'error' });
-                    }
-                  }}
-                >
-                  <Text style={styles.qtyButtonText}>-</Text>
-                </Pressable>
-                <Text style={styles.qtyValue}>{item.quantity}</Text>
-                <Pressable
-                  style={styles.qtyButton}
-                  onPress={() => {
-                    const result = updateItemQuantity(item.product.id, item.quantity + 1);
-                    showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
-                  }}
-                >
-                  <Text style={styles.qtyButtonText}>+</Text>
-                </Pressable>
-              </View>
-            </View>
-            <Pressable
-              style={styles.removeButton}
-              onPress={() => {
-                const result = removeItem(item.product.id);
-                showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
-              }}
-            >
-              <Text style={styles.removeText}>Eliminar</Text>
-            </Pressable>
-          </View>
-        )}
+        renderItem={renderItem}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews
       />
 
       <View style={styles.summary}>

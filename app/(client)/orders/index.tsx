@@ -1,5 +1,5 @@
+import { memo, useCallback, useMemo, useState } from 'react';
 import { Link } from 'expo-router';
-import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Order, OrderStatus } from '@/types/domain';
 import { useAuth } from '@/state/AuthContext';
@@ -96,6 +96,8 @@ export default function ClientOrdersScreen() {
   ).length;
   const deliveredCount = clientOrders.filter((item) => item.status === 'ENTREGADO').length;
 
+  const renderItem = useCallback(({ item }: { item: Order }) => <OrderRow item={item} />, []);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Mis pedidos</Text>
@@ -135,33 +137,12 @@ export default function ClientOrdersScreen() {
             <Text>No hay pedidos para este filtro.</Text>
           </View>
         }
-        renderItem={({ item }) => {
-          const badge = statusStyle(item.status);
-          return (
-            <Link href={`/(client)/orders/${item.id}`} asChild>
-              <Pressable style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.orderId}>{item.id}</Text>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: badge.bg, borderColor: badge.border },
-                    ]}
-                  >
-                    <Text style={[styles.statusText, { color: badge.text }]}>{statusLabel(item.status)}</Text>
-                  </View>
-                </View>
-                <Text style={styles.dateText}>Creado: {formatDate(item.createdAt)}</Text>
-                <Text style={styles.addressText}>{item.address}</Text>
-                <View style={styles.cardFooter}>
-                  <Text style={styles.totalText}>{formatCurrency(item.total)}</Text>
-                  <Text style={styles.detailHint}>Ver detalle</Text>
-                </View>
-              </Pressable>
-            </Link>
-          );
-        }}
+        renderItem={renderItem}
         contentContainerStyle={styles.listContent}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews
       />
     </View>
   );
@@ -281,5 +262,32 @@ const styles = StyleSheet.create({
     color: colors.link,
     fontWeight: '600',
   },
+});
+
+const OrderRow = memo(function OrderRow({ item }: { item: Order }) {
+  const badge = statusStyle(item.status);
+  return (
+    <Link href={`/(client)/orders/${item.id}`} asChild>
+      <Pressable style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.orderId}>{item.id}</Text>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: badge.bg, borderColor: badge.border },
+            ]}
+          >
+            <Text style={[styles.statusText, { color: badge.text }]}>{statusLabel(item.status)}</Text>
+          </View>
+        </View>
+        <Text style={styles.dateText}>Creado: {formatDate(item.createdAt)}</Text>
+        <Text style={styles.addressText}>{item.address}</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.totalText}>{formatCurrency(item.total)}</Text>
+          <Text style={styles.detailHint}>Ver detalle</Text>
+        </View>
+      </Pressable>
+    </Link>
+  );
 });
 

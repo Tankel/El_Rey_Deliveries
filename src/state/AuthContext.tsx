@@ -1,7 +1,9 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import { toActionFailure } from '@/core/errors/actionError';
 import { verifyPassword } from '@/core/security/password';
 import { jsonStorage } from '@/core/storage/jsonStorage';
 import { useUsers } from '@/context/UsersContext';
+import { normalizeUsername, validateSignInInput } from '@/domain/rules/authRules';
 import { UserRole } from '@/types/domain';
 
 type AuthUser = {
@@ -44,10 +46,6 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const AUTH_STORAGE_KEY = 'mvp.auth.session';
 const AUTH_AUDIT_STORAGE_KEY = 'mvp.auth.audit-log';
-
-function normalizeUsername(username: string) {
-  return username.trim().toLowerCase();
-}
 
 function buildAuditEvent(
   action: AuthAuditAction,
@@ -118,7 +116,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         buildAuditEvent(
           'LOGOUT',
           user.username,
-          'Sesion cerrada por usuario eliminado/inactivo.',
+          'Sesion cerrada por usuario eliminado o inactivo.',
           user.role,
         ),
         ...prev,
@@ -143,36 +141,44 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isAuthenticated: Boolean(user),
       isHydrated: isHydrated && areUsersHydrated,
       signIn: async (payload: SignInPayload) => {
-        const username = normalizeUsername(payload.username);
-        if (!username) {
-          return { ok: false, message: 'Ingresa usuario.' };
-        }
-        if (!payload.password.trim()) {
-          return { ok: false, message: 'Ingresa contraseña.' };
-        }
+        try {
+          const validation = validateSignInInput(payload);
+          if (!validation.ok) {
+            return { ok: false, message: validation.message };
+          }
 
-        const target = users.find((item) => item.username === username);
-        if (!target) {
-          const audit = buildAuditEvent('LOGIN_FAILED', username, 'Usuario no encontrado.');
-          setAuditLog((prev) => [audit, ...prev]);
-          return { ok: false, message: 'Usuario o contraseña incorrectos.' };
-        }
-        if (!target.isActive) {
-          const audit = buildAuditEvent('LOGIN_FAILED', username, 'Usuario inactivo.', target.role);
-          setAuditLog((prev) => [audit, ...prev]);
-          return { ok: false, message: 'Tu usuario esta inactivo.' };
-        }
-        const isPasswordValid = await verifyPassword(payload.password, target.password);
-        if (!isPasswordValid) {
-          const audit = buildAuditEvent('LOGIN_FAILED', username, 'Contraseña incorrecta.', target.role);
-          setAuditLog((prev) => [audit, ...prev]);
-          return { ok: false, message: 'Usuario o contraseña incorrectos.' };
-        }
+          const username = normalizeUsername(payload.username);
+          const target = users.find((item) => item.username === username);
+          if (!target) {
+            const audit = buildAuditEvent('LOGIN_FAILED', username, 'Usuario no encontrado.');
+            setAuditLog((prev) => [audit, ...prev]);
+            return { ok: false, message: 'Usuario o contrasena incorrectos.' };
+          }
+          if (!target.isActive) {
+            const audit = buildAuditEvent('LOGIN_FAILED', username, 'Usuario inactivo.', target.role);
+            setAuditLog((prev) => [audit, ...prev]);
+            return { ok: false, message: 'Tu usuario esta inactivo.' };
+          }
 
-        setUser(toAuthUser(target));
-        const audit = buildAuditEvent('LOGIN_SUCCESS', username, 'Inicio de sesion exitoso.', target.role);
-        setAuditLog((prev) => [audit, ...prev]);
-        return { ok: true, message: 'Bienvenido.' };
+          const isPasswordValid = await verifyPassword(payload.password, target.password);
+          if (!isPasswordValid) {
+            const audit = buildAuditEvent('LOGIN_FAILED', username, 'Contrasena incorrecta.', target.role);
+            setAuditLog((prev) => [audit, ...prev]);
+            return { ok: false, message: 'Usuario o contrasena incorrectos.' };
+          }
+
+          setUser(toAuthUser(target));
+          const audit = buildAuditEvent('LOGIN_SUCCESS', username, 'Inicio de sesion exitoso.', target.role);
+          setAuditLog((prev) => [audit, ...prev]);
+          return { ok: true, message: 'Bienvenido.' };
+        } catch (error) {
+          const username = normalizeUsername(payload.username);
+          setAuditLog((prev) => [
+            buildAuditEvent('LOGIN_FAILED', username, 'Error inesperado al iniciar sesion.'),
+            ...prev,
+          ]);
+          return toActionFailure(error, 'No fue posible iniciar sesion.');
+        }
       },
       signOut: () => {
         if (user) {
@@ -196,3 +202,4 @@ export function useAuth() {
 
   return context;
 }
+

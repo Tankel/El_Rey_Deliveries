@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AdminNotificationsBell } from '@/components/admin/AdminNotificationsBell';
 import { OrderStatus } from '@/types/domain';
@@ -83,6 +83,34 @@ export default function AdminOrdersScreen() {
       });
   }, [debouncedQuery, filter, orders]);
 
+  const handleCancel = useCallback(
+    (orderId: string) => {
+      Alert.alert(
+        'Cancelar pedido',
+        `Se cancelara el pedido ${orderId}. Esta accion impacta la operacion.`,
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Si, cancelar',
+            style: 'destructive',
+            onPress: () => {
+              const result = updateStatus(orderId, 'CANCELADO', { actorRole: 'ADMIN' });
+              showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+            },
+          },
+        ],
+      );
+    },
+    [showToast, updateStatus],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: (typeof filteredOrders)[number] }) => (
+      <AdminOrderRow item={item} onCancel={handleCancel} />
+    ),
+    [handleCancel],
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -127,63 +155,7 @@ export default function AdminOrdersScreen() {
         maxToRenderPerBatch={10}
         windowSize={7}
         removeClippedSubviews
-        renderItem={({ item }) => {
-          const badge = statusStyle(item.status);
-          const canCancel = item.status !== 'ENTREGADO' && item.status !== 'CANCELADO';
-          return (
-            <View style={styles.card}>
-              <View style={styles.cardTop}>
-                <Text style={styles.orderId}>{item.id}</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: badge.bg, borderColor: badge.border },
-                  ]}
-                >
-                  <Text style={[styles.statusText, { color: badge.text }]}>{statusLabel(item.status)}</Text>
-                </View>
-              </View>
-              <Text style={styles.metaText}>Cliente: {item.clientName}</Text>
-              <Text style={styles.metaText}>{item.address}</Text>
-              <Text style={styles.metaText}>
-                Pago: {item.paymentMethod ?? 'N/A'} - {item.paymentStatus ?? 'N/A'}
-              </Text>
-              <Text style={styles.totalText}>{formatCurrency(item.total)}</Text>
-
-              <View style={styles.actions}>
-                <Link href={`/(admin)/orders/${item.id}`} asChild>
-                  <Pressable style={styles.actionButton}>
-                    <Text style={styles.actionText}>Gestionar</Text>
-                  </Pressable>
-                </Link>
-                {canCancel ? (
-                  <Pressable
-                    style={[styles.actionButton, styles.cancelButton]}
-                    onPress={() => {
-                      Alert.alert(
-                        'Cancelar pedido',
-                        `Se cancelara el pedido ${item.id}. Esta accion impacta la operacion.`,
-                        [
-                          { text: 'No', style: 'cancel' },
-                          {
-                            text: 'Si, cancelar',
-                            style: 'destructive',
-                            onPress: () => {
-                              const result = updateStatus(item.id, 'CANCELADO', { actorRole: 'ADMIN' });
-                              showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
-                            },
-                          },
-                        ],
-                      );
-                    }}
-                  >
-                    <Text style={[styles.actionText, styles.cancelText]}>Cancelar</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-          );
-        }}
+        renderItem={renderItem}
       />
     </View>
   );
@@ -320,4 +292,58 @@ const styles = StyleSheet.create({
   cancelText: {
     color: colors.danger,
   },
+});
+
+const AdminOrderRow = memo(function AdminOrderRow({
+  item,
+  onCancel,
+}: {
+  item: {
+    id: string;
+    status: OrderStatus;
+    clientName: string;
+    address: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    total: number;
+  };
+  onCancel: (orderId: string) => void;
+}) {
+  const badge = statusStyle(item.status);
+  const canCancel = item.status !== 'ENTREGADO' && item.status !== 'CANCELADO';
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardTop}>
+        <Text style={styles.orderId}>{item.id}</Text>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: badge.bg, borderColor: badge.border },
+          ]}
+        >
+          <Text style={[styles.statusText, { color: badge.text }]}>{statusLabel(item.status)}</Text>
+        </View>
+      </View>
+      <Text style={styles.metaText}>Cliente: {item.clientName}</Text>
+      <Text style={styles.metaText}>{item.address}</Text>
+      <Text style={styles.metaText}>
+        Pago: {item.paymentMethod ?? 'N/A'} - {item.paymentStatus ?? 'N/A'}
+      </Text>
+      <Text style={styles.totalText}>{formatCurrency(item.total)}</Text>
+
+      <View style={styles.actions}>
+        <Link href={`/(admin)/orders/${item.id}`} asChild>
+          <Pressable style={styles.actionButton}>
+            <Text style={styles.actionText}>Gestionar</Text>
+          </Pressable>
+        </Link>
+        {canCancel ? (
+          <Pressable style={[styles.actionButton, styles.cancelButton]} onPress={() => onCancel(item.id)}>
+            <Text style={[styles.actionText, styles.cancelText]}>Cancelar</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
 });

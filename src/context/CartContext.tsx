@@ -1,6 +1,16 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { jsonStorage } from '@/core/storage/jsonStorage';
 import { useCatalog } from '@/context/CatalogContext';
+import { requiresPrepayment } from '@/domain/rules/orderRules';
 import { Product } from '@/models/Product';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
@@ -29,6 +39,7 @@ type CartContextValue = {
   itemCount: number;
   subtotal: number;
   totalSavings: number;
+  getItemQuantity: (productId: string) => number;
   addItem: (product: Product, quantity?: number) => ActionResult;
   updateItemQuantity: (productId: string, quantity: number) => ActionResult;
   removeItem: (productId: string) => ActionResult;
@@ -48,20 +59,36 @@ function getLineSavings(item: CartItem): number {
   return perUnit * item.quantity;
 }
 
-function requiresPrepayment(method: PaymentMethod) {
-  return method === 'TARJETA' || method === 'TRANSFERENCIA';
-}
-
 export function CartProvider({ children }: PropsWithChildren) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const { user } = useAuth();
   const { createOrder } = useOrders();
   const { products } = useCatalog();
+  const itemsRef = useRef<CartItem[]>([]);
+  const userRef = useRef(user);
+  const productsRef = useRef(products);
+  const createOrderRef = useRef(createOrder);
   const cartStorageKey = useMemo(
     () => `${CART_STORAGE_KEY}.${user?.id ?? 'guest'}`,
     [user?.id],
   );
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    productsRef.current = products;
+  }, [products]);
+
+  useEffect(() => {
+    createOrderRef.current = createOrder;
+  }, [createOrder]);
 
   useEffect(() => {
     let isMounted = true;
@@ -72,7 +99,9 @@ export function CartProvider({ children }: PropsWithChildren) {
       if (!isMounted) {
         return;
       }
-      setItems(sanitizeItems(storedItems));
+      const nextItems = sanitizeItems(storedItems);
+      itemsRef.current = nextItems;
+      setItems(nextItems);
       setIsHydrated(true);
     };
 
@@ -89,6 +118,184 @@ export function CartProvider({ children }: PropsWithChildren) {
     void jsonStorage.write(cartStorageKey, items);
   }, [cartStorageKey, isHydrated, items]);
 
+  const getItemQuantity = useCallback((productId: string) => {
+    return itemsRef.current.find((item) => item.product.id === productId)?.quantity ?? 0;
+  }, []);
+
+  const addItem = useCallback((product: Product, quantity = 1): ActionResult => {
+    if (quantity <= 0) {
+      return { ok: false, message: 'La cantidad debe ser mayor a 0.' };
+    }
+
+    const sourceProduct = productsRef.current.find((item) => item.id === product.id) ?? product;
+    const existing = itemsRef.current.find((item) => item.product.id === product.id)?.quantity ?? 0;
+
+    if (sourceProduct.stock !== undefined) {
+      if (sourceProduct.stock <= 0) {
+        return { ok: false, message: 'Este producto ya no tiene stock.' };
+      }
+      if (existing + quantity > sourceProduct.stock) {
+        return { ok: false, message: `Stock insuficiente. Disponible: ${sourceProduct.stock - existing}.` };
+      }
+    }
+
+    setItems((prev) => {
+      const existingItem = prev.find((item) => item.product.id === product.id);
+      const next = !existingItem
+        ? [...prev, { product: sourceProduct, quantity }]
+        : prev.map((item) =>
+          item.product.id === product.id
+            ? {
+                ...item,
+                quantity: item.quantity + quantity,
+              }
+            : item,
+        );
+      itemsRef.current = next;
+      return next;
+    });
+
+    if (sourceProduct.stock !== undefined) {
+      const remaining = sourceProduct.stock - (existing + quantity);
+      if (remaining <= 0) {
+        return { ok: true, message: 'Producto agregado. Ya alcanzaste el maximo disponible.' };
+      }
+      if (remaining <= 5) {
+        return { ok: true, message: `Producto agregado. Quedan pocas unidades (${remaining}).` };
+      }
+    }
+
+    return { ok: true, message: 'Producto agregado al carrito.' };
+  }, []);
+
+  const updateItemQuantity = useCallback((productId: string, quantity: number): ActionResult => {
+    if (quantity <= 0) {
+      return { ok: false, message: 'La cantidad debe ser mayor a 0.' };
+    }
+
+    const target = itemsRef.current.find((item) => item.product.id === productId);
+    if (!target) {
+      return { ok: false, message: 'Producto no encontrado en el carrito.' };
+    }
+
+    const sourceProduct = productsRef.current.find((item) => item.id === productId) ?? target.product;
+    if (sourceProduct.stock !== undefined && quantity > sourceProduct.stock) {
+      return { ok: false, message: 'La cantidad supera el stock disponible.' };
+    }
+
+    setItems((prev) =>
+      {
+        const next = prev.map((item) =>
+        item.product.id === productId
+          ? {
+              ...item,
+              product: sourceProduct,
+              quantity,
+            }
+          : item,
+        );
+        itemsRef.current = next;
+        return next;
+      },
+    );
+    return { ok: true, message: 'Cantidad actualizada.' };
+  }, []);
+
+  const removeItem = useCallback((productId: string): ActionResult => {
+    const exists = itemsRef.current.some((item) => item.product.id === productId);
+    if (!exists) {
+      return { ok: false, message: 'Producto no encontrado en el carrito.' };
+    }
+
+    setItems((prev) => {
+      const next = prev.filter((item) => item.product.id !== productId);
+      itemsRef.current = next;
+      return next;
+    });
+    return { ok: true, message: 'Producto eliminado del carrito.' };
+  }, []);
+
+  const clearCart = useCallback(() => {
+    itemsRef.current = [];
+    setItems([]);
+  }, []);
+
+  const confirmOrder = useCallback((payload?: ConfirmOrderPayload): ActionResult => {
+    const currentItems = itemsRef.current;
+    const currentUser = userRef.current;
+    const currentProducts = productsRef.current;
+
+    if (currentItems.length === 0) {
+      return { ok: false, message: 'No puedes confirmar un pedido vacio.' };
+    }
+
+    if (!currentUser) {
+      return { ok: false, message: 'Debes iniciar sesion para confirmar el pedido.' };
+    }
+    const paymentMethod = payload?.paymentMethod ?? 'EFECTIVO';
+    const paymentStatus = payload?.paymentStatus ?? 'PENDIENTE_PAGO';
+    if (paymentStatus === 'RECHAZADO') {
+      return { ok: false, message: 'No puedes confirmar con pago rechazado.' };
+    }
+    if (requiresPrepayment(paymentMethod) && paymentStatus !== 'PAGADO_SIMULADO') {
+      return {
+        ok: false,
+        message: 'Debes confirmar el pago antes de enviar el pedido.',
+      };
+    }
+
+    for (const item of currentItems) {
+      if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+        return { ok: false, message: `Cantidad invalida para ${item.product.name}.` };
+      }
+    }
+
+    for (const item of currentItems) {
+      const sourceProduct = currentProducts.find((product) => product.id === item.product.id);
+      if (!sourceProduct || sourceProduct.stock === undefined) {
+        continue;
+      }
+      if (sourceProduct.stock <= 0) {
+        return { ok: false, message: `${item.product.name} ya no tiene stock.` };
+      }
+      if (item.quantity > sourceProduct.stock) {
+        return {
+          ok: false,
+          message: `Stock insuficiente para ${item.product.name}. Disponible: ${sourceProduct.stock}.`,
+        };
+      }
+    }
+    const computedTotal = currentItems.reduce((total, item) => total + item.product.price * item.quantity, 0);
+    if (computedTotal <= 0) {
+      return { ok: false, message: 'El total del carrito es invalido.' };
+    }
+
+    const result = createOrderRef.current({
+      clientId: currentUser.id,
+      clientName: currentUser.username,
+      address: payload?.address?.trim() || 'Direccion pendiente de confirmar',
+      total: computedTotal,
+      paymentMethod,
+      paymentStatus,
+      items: currentItems.map((item) => ({
+        productId: item.product.id,
+        productName: item.product.name,
+        quantity: item.quantity,
+        unitPrice: item.product.price,
+        lineTotal: item.product.price * item.quantity,
+      })),
+      notes:
+        payload?.notes ??
+        currentItems.map((item) => `${item.quantity}x ${item.product.name}`).join(', '),
+    });
+
+    if (result.ok) {
+      itemsRef.current = [];
+      setItems([]);
+    }
+    return result;
+  }, []);
+
   const value = useMemo<CartContextValue>(
     () => ({
       items,
@@ -96,157 +303,14 @@ export function CartProvider({ children }: PropsWithChildren) {
       itemCount: items.reduce((total, item) => total + item.quantity, 0),
       subtotal: items.reduce((total, item) => total + item.product.price * item.quantity, 0),
       totalSavings: items.reduce((total, item) => total + getLineSavings(item), 0),
-      addItem: (product: Product, quantity = 1) => {
-        if (quantity <= 0) {
-          return { ok: false, message: 'La cantidad debe ser mayor a 0.' };
-        }
-        const sourceProduct = products.find((item) => item.id === product.id) ?? product;
-        if (sourceProduct.stock !== undefined) {
-          const existing = items.find((item) => item.product.id === product.id)?.quantity ?? 0;
-          if (sourceProduct.stock <= 0) {
-            return { ok: false, message: 'Este producto ya no tiene stock.' };
-          }
-          if (existing + quantity > sourceProduct.stock) {
-            return { ok: false, message: `Stock insuficiente. Disponible: ${sourceProduct.stock - existing}.` };
-          }
-        }
-
-        setItems((prev) => {
-          const existing = prev.find((item) => item.product.id === product.id);
-          if (!existing) {
-            return [...prev, { product, quantity }];
-          }
-          return prev.map((item) =>
-            item.product.id === product.id
-              ? {
-                  ...item,
-                  quantity: item.quantity + quantity,
-                }
-              : item,
-          );
-        });
-
-        if (sourceProduct.stock !== undefined) {
-          const existing = items.find((item) => item.product.id === product.id)?.quantity ?? 0;
-          const remaining = sourceProduct.stock - (existing + quantity);
-          if (remaining <= 0) {
-            return { ok: true, message: 'Producto agregado. Ya alcanzaste el maximo disponible.' };
-          }
-          if (remaining <= 5) {
-            return { ok: true, message: `Producto agregado. Quedan pocas unidades (${remaining}).` };
-          }
-        }
-
-        return { ok: true, message: 'Producto agregado al carrito.' };
-      },
-      updateItemQuantity: (productId: string, quantity: number) => {
-        if (quantity <= 0) {
-          return { ok: false, message: 'La cantidad debe ser mayor a 0.' };
-        }
-
-        const target = items.find((item) => item.product.id === productId);
-        if (!target) {
-          return { ok: false, message: 'Producto no encontrado en el carrito.' };
-        }
-
-        if (target.product.stock !== undefined && quantity > target.product.stock) {
-          return { ok: false, message: 'La cantidad supera el stock disponible.' };
-        }
-
-        setItems((prev) =>
-          prev.map((item) =>
-            item.product.id === productId
-              ? {
-                  ...item,
-                  quantity,
-                }
-              : item,
-          ),
-        );
-        return { ok: true, message: 'Cantidad actualizada.' };
-      },
-      removeItem: (productId: string) => {
-        const exists = items.some((item) => item.product.id === productId);
-        if (!exists) {
-          return { ok: false, message: 'Producto no encontrado en el carrito.' };
-        }
-
-        setItems((prev) => prev.filter((item) => item.product.id !== productId));
-        return { ok: true, message: 'Producto eliminado del carrito.' };
-      },
-      clearCart: () => setItems([]),
-      confirmOrder: (payload?: ConfirmOrderPayload) => {
-        if (items.length === 0) {
-          return { ok: false, message: 'No puedes confirmar un pedido vacio.' };
-        }
-
-        if (!user) {
-          return { ok: false, message: 'Debes iniciar sesion para confirmar el pedido.' };
-        }
-        const paymentMethod = payload?.paymentMethod ?? 'EFECTIVO';
-        const paymentStatus = payload?.paymentStatus ?? 'PENDIENTE_PAGO';
-        if (paymentStatus === 'RECHAZADO') {
-          return { ok: false, message: 'No puedes confirmar con pago rechazado.' };
-        }
-        if (requiresPrepayment(paymentMethod) && paymentStatus !== 'PAGADO_SIMULADO') {
-          return {
-            ok: false,
-            message: 'Debes confirmar el pago antes de enviar el pedido.',
-          };
-        }
-
-        for (const item of items) {
-          if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
-            return { ok: false, message: `Cantidad invalida para ${item.product.name}.` };
-          }
-        }
-
-        for (const item of items) {
-          const sourceProduct = products.find((product) => product.id === item.product.id);
-          if (!sourceProduct || sourceProduct.stock === undefined) {
-            continue;
-          }
-          if (sourceProduct.stock <= 0) {
-            return { ok: false, message: `${item.product.name} ya no tiene stock.` };
-          }
-          if (item.quantity > sourceProduct.stock) {
-            return {
-              ok: false,
-              message: `Stock insuficiente para ${item.product.name}. Disponible: ${sourceProduct.stock}.`,
-            };
-          }
-        }
-        const computedTotal = items.reduce((total, item) => total + item.product.price * item.quantity, 0);
-        if (computedTotal <= 0) {
-          return { ok: false, message: 'El total del carrito es invalido.' };
-        }
-
-        const result = createOrder({
-          clientId: user.id,
-          clientName: user.username,
-          address: payload?.address?.trim() || 'Direccion pendiente de confirmar',
-          total: computedTotal,
-          paymentMethod,
-          paymentStatus,
-          items: items.map((item) => ({
-            productId: item.product.id,
-            productName: item.product.name,
-            quantity: item.quantity,
-            unitPrice: item.product.price,
-            lineTotal: item.product.price * item.quantity,
-          })),
-          notes:
-            payload?.notes ??
-            items.map((item) => `${item.quantity}x ${item.product.name}`).join(', '),
-        });
-
-        if (result.ok) {
-          setItems([]);
-        }
-        return result;
-      },
+      getItemQuantity,
+      addItem,
+      updateItemQuantity,
+      removeItem,
+      clearCart,
+      confirmOrder,
     }),
-    [createOrder, isHydrated, items, products, user],
+    [addItem, clearCart, confirmOrder, getItemQuantity, isHydrated, items, removeItem, updateItemQuantity],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

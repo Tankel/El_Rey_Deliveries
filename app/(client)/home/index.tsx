@@ -26,7 +26,7 @@ import { colors, spacing, typography } from '@/ui/theme/tokens';
 export default function ClientHomeScreen() {
   const { user } = useAuth();
   const { products, isHydrated: isCatalogHydrated } = useCatalog();
-  const { itemCount, isHydrated, items, addItem } = useCart();
+  const { itemCount, isHydrated, getItemQuantity, addItem } = useCart();
   const { showToast } = useToast();
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebouncedValue(query);
@@ -46,7 +46,7 @@ export default function ClientHomeScreen() {
 
   const handleAddProduct = useCallback(
     (product: Product) => {
-      const existingQuantity = items.find((item) => item.product.id === product.id)?.quantity ?? 0;
+      const existingQuantity = getItemQuantity(product.id);
 
       const addAnother = () => {
         const result = addItem(product, 1);
@@ -67,7 +67,7 @@ export default function ClientHomeScreen() {
 
       addAnother();
     },
-    [addItem, items, showToast],
+    [addItem, getItemQuantity, showToast],
   );
 
   const renderProduct = useCallback(

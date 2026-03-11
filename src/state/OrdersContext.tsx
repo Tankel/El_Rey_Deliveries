@@ -1,8 +1,14 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { useCatalog } from '@/context/CatalogContext';
 import { jsonStorage } from '@/core/storage/jsonStorage';
+import {
+  ORDER_ALLOWED_TRANSITIONS,
+  canTransition,
+  requiresPrepayment,
+  validatePaymentForTransition,
+} from '@/domain/rules/orderRules';
+import { buildReleaseStockPlan, buildReserveStockPlan, StockPlanEntry } from '@/domain/rules/stockRules';
 import { es } from '@/i18n/es';
-import { Product } from '@/models/Product';
 import {
   DeliveryProof,
   DriverProfile,
@@ -65,6 +71,7 @@ type OrdersContextValue = {
   forceStatus: (orderId: string, nextStatus: OrderStatus) => ActionResult;
   getAllowedNextStatuses: (orderId: string) => OrderStatus[];
   markNotificationRead: (notificationId: string) => void;
+  markNotificationsRead: (notificationIds: string[]) => void;
   markAllNotificationsRead: () => void;
 };
 
@@ -98,48 +105,8 @@ const ORDERS_STORAGE_KEY = 'mvp.orders.items';
 const ORDER_NOTIFICATIONS_STORAGE_KEY = 'mvp.orders.notifications';
 const CURRENCY_EPSILON = 0.01;
 
-const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
-  PENDIENTE: ['CONFIRMADO', 'CANCELADO'],
-  CONFIRMADO: ['EN_PREPARACION', 'CANCELADO'],
-  EN_PREPARACION: ['ASIGNADO', 'CANCELADO'],
-  ASIGNADO: ['ACEPTADO_REPARTIDOR', 'CANCELADO'],
-  ACEPTADO_REPARTIDOR: ['EN_CAMINO', 'CANCELADO'],
-  EN_CAMINO: ['ENTREGADO', 'CANCELADO'],
-  ENTREGADO: [],
-  CANCELADO: [],
-};
-
-function canTransition(current: OrderStatus, next: OrderStatus) {
-  return allowedTransitions[current].includes(next);
-}
-
-function requiresPrepayment(method: PaymentMethod) {
-  return method === 'TARJETA' || method === 'TRANSFERENCIA';
-}
-
 function getOrderPaymentValidation(order: Order, nextStatus: OrderStatus): ActionResult {
-  if (nextStatus === 'CANCELADO') {
-    return { ok: true, message: 'ok' };
-  }
-
-  const paymentMethod = order.paymentMethod ?? 'EFECTIVO';
-  const paymentStatus = order.paymentStatus ?? 'PENDIENTE_PAGO';
-
-  if (paymentStatus === 'RECHAZADO') {
-    return {
-      ok: false,
-      message: 'No puedes avanzar el pedido porque el pago fue rechazado.',
-    };
-  }
-
-  if (requiresPrepayment(paymentMethod) && paymentStatus !== 'PAGADO_SIMULADO') {
-    return {
-      ok: false,
-      message: 'Este pedido requiere pago confirmado antes de avanzar.',
-    };
-  }
-
-  return { ok: true, message: 'ok' };
+  return validatePaymentForTransition(order.paymentMethod, order.paymentStatus, nextStatus);
 }
 
 function toIsoNow() {
@@ -150,94 +117,6 @@ function calculateItemsTotal(items: OrderItem[]) {
   return items.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
 }
 
-type StockPlanEntry = {
-  productId: string;
-  productName: string;
-  currentStock: number;
-  nextStock: number;
-  quantity: number;
-};
-
-type StockPlanResult = {
-  ok: boolean;
-  message: string;
-  entries: StockPlanEntry[];
-};
-
-function buildReserveStockPlan(items: OrderItem[], products: Product[]): StockPlanResult {
-  const entries: StockPlanEntry[] = [];
-  const quantities = new Map<string, { productName: string; quantity: number }>();
-
-  for (const item of items) {
-    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
-      return { ok: false, message: `Cantidad invalida para ${item.productName}.`, entries: [] };
-    }
-    const previous = quantities.get(item.productId);
-    quantities.set(item.productId, {
-      productName: item.productName,
-      quantity: (previous?.quantity ?? 0) + item.quantity,
-    });
-  }
-
-  for (const [productId, quantityData] of quantities.entries()) {
-    const product = products.find((candidate) => candidate.id === productId);
-    if (!product) {
-      return { ok: false, message: `Producto no encontrado: ${quantityData.productName}.`, entries: [] };
-    }
-    const currentStock = product.stock ?? 0;
-    if (currentStock < quantityData.quantity) {
-      return {
-        ok: false,
-        message: `Stock insuficiente para ${product.name}. Disponible: ${currentStock}.`,
-        entries: [],
-      };
-    }
-
-    entries.push({
-      productId: product.id,
-      productName: product.name,
-      quantity: quantityData.quantity,
-      currentStock,
-      nextStock: currentStock - quantityData.quantity,
-    });
-  }
-
-  return { ok: true, message: 'ok', entries };
-}
-
-function buildReleaseStockPlan(items: OrderItem[], products: Product[]) {
-  const entries: StockPlanEntry[] = [];
-  const quantities = new Map<string, { productName: string; quantity: number }>();
-
-  for (const item of items) {
-    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
-      continue;
-    }
-    const previous = quantities.get(item.productId);
-    quantities.set(item.productId, {
-      productName: item.productName,
-      quantity: (previous?.quantity ?? 0) + item.quantity,
-    });
-  }
-
-  for (const [productId, quantityData] of quantities.entries()) {
-    const product = products.find((candidate) => candidate.id === productId);
-    if (!product) {
-      continue;
-    }
-    const currentStock = product.stock ?? 0;
-
-    entries.push({
-      productId: product.id,
-      productName: product.name,
-      quantity: quantityData.quantity,
-      currentStock,
-      nextStock: currentStock + quantityData.quantity,
-    });
-  }
-
-  return entries;
-}
 
 function normalizeOrder(order: Order): Order {
   const createdAt = order.createdAt ?? toIsoNow();
@@ -755,12 +634,28 @@ export function OrdersProvider({ children }: PropsWithChildren) {
         if (!order) {
           return [];
         }
-        return allowedTransitions[order.status];
+        return ORDER_ALLOWED_TRANSITIONS[order.status];
       },
       markNotificationRead: (notificationId: string) => {
         setNotifications((prev) =>
           prev.map((item) =>
             item.id === notificationId
+              ? {
+                  ...item,
+                  read: true,
+                }
+              : item,
+          ),
+        );
+      },
+      markNotificationsRead: (notificationIds: string[]) => {
+        if (!notificationIds.length) {
+          return;
+        }
+        const ids = new Set(notificationIds);
+        setNotifications((prev) =>
+          prev.map((item) =>
+            ids.has(item.id)
               ? {
                   ...item,
                   read: true,

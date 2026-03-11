@@ -8,7 +8,13 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint \"{app,src,tests}/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"{app,src,tests}/**/*.{ts,tsx,md,json}\"",
+    "format:check": "prettier --check \"{app,src,tests}/**/*.{ts,tsx,md,json}\"",
+    "check": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -29,10 +35,17 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/babel__generator": "^7.27.0",
     "@types/babel__template": "^7.4.4",
     "@types/node": "^25.2.3",
     "@types/react": "~19.1.10",
-    "typescript": "~5.9.2"
+    "@typescript-eslint/eslint-plugin": "^8.57.0",
+    "@typescript-eslint/parser": "^8.57.0",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2",
+    "vitest": "^4.0.18"
   }
 }

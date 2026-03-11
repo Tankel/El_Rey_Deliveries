@@ -12,6 +12,7 @@
   },
   "include": [
     "app",
-    "src"
+    "src",
+    "tests"
   ]
 }

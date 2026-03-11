@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { DriverNotificationsBell } from '@/components/driver/DriverNotificationsBell';
 import { es } from '@/i18n/es';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
+import { Order } from '@/types/domain';
 import { colors, radius, spacing } from '@/ui/theme/tokens';
 
 export default function DriverInboxScreen() {
@@ -20,6 +21,11 @@ export default function DriverInboxScreen() {
     [orders, user?.id],
   );
 
+  const renderItem = useCallback(
+    ({ item }: { item: Order }) => <AssignmentRow item={item} onOpen={(id) => router.push(`/(driver)/deliveries/${id}`)} />,
+    [router],
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -31,19 +37,12 @@ export default function DriverInboxScreen() {
         data={newAssignments}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={<Text style={styles.emptyText}>No tienes nuevas asignaciones.</Text>}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.assignmentCard}
-            onPress={() => router.push(`/(driver)/deliveries/${item.id}`)}
-          >
-            <Text style={styles.assignmentId}>{item.id}</Text>
-            <Text style={styles.assignmentMeta}>{item.address}</Text>
-            <Text style={styles.assignmentMeta}>
-              Actualizado: {new Date(item.updatedAt).toLocaleString('es-MX')}
-            </Text>
-          </Pressable>
-        )}
+        renderItem={renderItem}
         contentContainerStyle={styles.assignmentList}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews
       />
     </View>
   );
@@ -95,5 +94,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 10,
   },
+});
+
+const AssignmentRow = memo(function AssignmentRow({
+  item,
+  onOpen,
+}: {
+  item: Order;
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <Pressable style={styles.assignmentCard} onPress={() => onOpen(item.id)}>
+      <Text style={styles.assignmentId}>{item.id}</Text>
+      <Text style={styles.assignmentMeta}>{item.address}</Text>
+      <Text style={styles.assignmentMeta}>
+        Actualizado: {new Date(item.updatedAt).toLocaleString('es-MX')}
+      </Text>
+    </Pressable>
+  );
 });
 

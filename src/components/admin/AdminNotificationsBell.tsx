@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   Animated,
+  FlatList,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -40,7 +40,7 @@ export function AdminNotificationsBell() {
     }).start();
   };
 
-  const closePanel = () => {
+  const closePanel = useCallback(() => {
     Animated.timing(panelX, {
       toValue: 360,
       duration: 200,
@@ -48,7 +48,23 @@ export function AdminNotificationsBell() {
     }).start(() => {
       setOpen(false);
     });
-  };
+  }, [panelX]);
+
+  const openOrderFromNotification = useCallback(
+    (notificationId: string, orderId: string) => {
+      markNotificationRead(notificationId);
+      closePanel();
+      router.push(`/(admin)/orders/${orderId}`);
+    },
+    [closePanel, markNotificationRead, router],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: (typeof orderedNotifications)[number] }) => (
+      <AdminNotificationItem item={item} onPress={openOrderFromNotification} />
+    ),
+    [openOrderFromNotification],
+  );
 
   return (
     <>
@@ -81,28 +97,17 @@ export function AdminNotificationsBell() {
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.panelBody}>
-              {orderedNotifications.length === 0 ? (
-                <Text style={styles.emptyText}>Sin notificaciones.</Text>
-              ) : (
-                orderedNotifications.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    style={[styles.notificationItem, !item.read && styles.unreadItem]}
-                    onPress={() => {
-                      markNotificationRead(item.id);
-                      closePanel();
-                      router.push(`/(admin)/orders/${item.orderId}`);
-                    }}
-                  >
-                    <Text style={styles.notificationText}>{item.message}</Text>
-                    <Text style={styles.notificationDate}>
-                      {new Date(item.createdAt).toLocaleString('es-MX')}
-                    </Text>
-                  </Pressable>
-                ))
-              )}
-            </ScrollView>
+            <FlatList
+              data={orderedNotifications}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.panelBody}
+              ListEmptyComponent={<Text style={styles.emptyText}>Sin notificaciones.</Text>}
+              renderItem={renderItem}
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={5}
+              removeClippedSubviews
+            />
           </Animated.View>
         </View>
       </Modal>
@@ -195,4 +200,30 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
   },
+});
+
+const AdminNotificationItem = memo(function AdminNotificationItem({
+  item,
+  onPress,
+}: {
+  item: {
+    id: string;
+    orderId: string;
+    message: string;
+    createdAt: string;
+    read: boolean;
+  };
+  onPress: (notificationId: string, orderId: string) => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.notificationItem, !item.read && styles.unreadItem]}
+      onPress={() => onPress(item.id, item.orderId)}
+    >
+      <Text style={styles.notificationText}>{item.message}</Text>
+      <Text style={styles.notificationDate}>
+        {new Date(item.createdAt).toLocaleString('es-MX')}
+      </Text>
+    </Pressable>
+  );
 });

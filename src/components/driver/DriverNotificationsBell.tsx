@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { es } from '@/i18n/es';
 import { useAuth } from '@/state/AuthContext';
@@ -11,7 +11,7 @@ import { colors, radius } from '@/ui/theme/tokens';
 export function DriverNotificationsBell() {
   const router = useRouter();
   const { user } = useAuth();
-  const { notifications, markNotificationRead } = useOrders();
+  const { notifications, markNotificationRead, markNotificationsRead } = useOrders();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const panelX = useRef(new Animated.Value(360)).current;
@@ -35,13 +35,29 @@ export function DriverNotificationsBell() {
     }).start();
   };
 
-  const closePanel = () => {
+  const closePanel = useCallback(() => {
     Animated.timing(panelX, {
       toValue: 360,
       duration: 200,
       useNativeDriver: true,
     }).start(() => setOpen(false));
-  };
+  }, [panelX]);
+
+  const openDeliveryFromNotification = useCallback(
+    (notificationId: string, orderId: string) => {
+      markNotificationRead(notificationId);
+      closePanel();
+      router.push(`/(driver)/deliveries/${orderId}`);
+    },
+    [closePanel, markNotificationRead, router],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: (typeof driverNotifications)[number] }) => (
+      <DriverNotificationItem item={item} onPress={openDeliveryFromNotification} />
+    ),
+    [openDeliveryFromNotification],
+  );
 
   return (
     <>
@@ -78,37 +94,26 @@ export function DriverNotificationsBell() {
               <Pressable
                 style={styles.markAllButton}
                 onPress={() =>
-                  driverNotifications
-                    .filter((item) => !item.read)
-                    .forEach((item) => markNotificationRead(item.id))
+                  markNotificationsRead(
+                    driverNotifications.filter((item) => !item.read).map((item) => item.id),
+                  )
                 }
               >
                 <Text style={styles.markAllButtonText}>{es.driver.markAllAsRead}</Text>
               </Pressable>
             ) : null}
 
-            <ScrollView contentContainerStyle={styles.panelBody}>
-              {driverNotifications.length === 0 ? (
-                <Text style={styles.emptyText}>{es.driver.noNotifications}</Text>
-              ) : (
-                driverNotifications.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    style={[styles.notificationItem, !item.read && styles.unreadItem]}
-                    onPress={() => {
-                      markNotificationRead(item.id);
-                      closePanel();
-                      router.push(`/(driver)/deliveries/${item.orderId}`);
-                    }}
-                  >
-                    <Text style={styles.notificationText}>{item.message}</Text>
-                    <Text style={styles.notificationDate}>
-                      {new Date(item.createdAt).toLocaleString('es-MX')}
-                    </Text>
-                  </Pressable>
-                ))
-              )}
-            </ScrollView>
+            <FlatList
+              data={driverNotifications}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.panelBody}
+              ListEmptyComponent={<Text style={styles.emptyText}>{es.driver.noNotifications}</Text>}
+              renderItem={renderItem}
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={5}
+              removeClippedSubviews
+            />
           </Animated.View>
         </View>
       </Modal>
@@ -213,4 +218,30 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
   },
+});
+
+const DriverNotificationItem = memo(function DriverNotificationItem({
+  item,
+  onPress,
+}: {
+  item: {
+    id: string;
+    orderId: string;
+    message: string;
+    createdAt: string;
+    read: boolean;
+  };
+  onPress: (notificationId: string, orderId: string) => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.notificationItem, !item.read && styles.unreadItem]}
+      onPress={() => onPress(item.id, item.orderId)}
+    >
+      <Text style={styles.notificationText}>{item.message}</Text>
+      <Text style={styles.notificationDate}>
+        {new Date(item.createdAt).toLocaleString('es-MX')}
+      </Text>
+    </Pressable>
+  );
 });

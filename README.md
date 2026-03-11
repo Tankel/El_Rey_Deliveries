@@ -32,6 +32,23 @@ npm run ios
 npm run web
 ```
 
+## Calidad y pruebas
+
+```bash
+# Typecheck + lint + tests
+npm run check
+
+# Solo tests
+npm run test
+
+# Lint
+npm run lint
+
+# Formato
+npm run format
+npm run format:check
+```
+
 ## Primeros pasos recomendados para seguir codificando
 
 1. Implementar `SessionContext` y `SyncContext` en `src/state`.
