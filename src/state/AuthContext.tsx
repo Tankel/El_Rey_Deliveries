@@ -1,4 +1,5 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import { verifyPassword } from '@/core/security/password';
 import { jsonStorage } from '@/core/storage/jsonStorage';
 import { useUsers } from '@/context/UsersContext';
 import { UserRole } from '@/types/domain';
@@ -36,7 +37,7 @@ type AuthContextValue = {
   auditLog: AuthAuditEvent[];
   isAuthenticated: boolean;
   isHydrated: boolean;
-  signIn: (payload: SignInPayload) => ActionResult;
+  signIn: (payload: SignInPayload) => Promise<ActionResult>;
   signOut: () => void;
 };
 
@@ -141,7 +142,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       auditLog,
       isAuthenticated: Boolean(user),
       isHydrated: isHydrated && areUsersHydrated,
-      signIn: (payload: SignInPayload) => {
+      signIn: async (payload: SignInPayload) => {
         const username = normalizeUsername(payload.username);
         if (!username) {
           return { ok: false, message: 'Ingresa usuario.' };
@@ -161,7 +162,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setAuditLog((prev) => [audit, ...prev]);
           return { ok: false, message: 'Tu usuario esta inactivo.' };
         }
-        if (target.password !== payload.password) {
+        const isPasswordValid = await verifyPassword(payload.password, target.password);
+        if (!isPasswordValid) {
           const audit = buildAuditEvent('LOGIN_FAILED', username, 'Contraseña incorrecta.', target.role);
           setAuditLog((prev) => [audit, ...prev]);
           return { ok: false, message: 'Usuario o contraseña incorrectos.' };

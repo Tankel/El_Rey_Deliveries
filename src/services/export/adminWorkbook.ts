@@ -23,11 +23,28 @@ type ExportResult = {
   fileUri?: string;
 };
 
+function sanitizeSpreadsheetValue(value: unknown) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  if (/^[\s]*[=+\-@]/.test(value)) {
+    return `'${value}`;
+  }
+
+  return value;
+}
+
+function sanitizeSpreadsheetRow<T extends Record<string, unknown>>(row: T): T {
+  const nextEntries = Object.entries(row).map(([key, value]) => [key, sanitizeSpreadsheetValue(value)]);
+  return Object.fromEntries(nextEntries) as T;
+}
+
 export async function exportAdminWorkbook(payload: ExportPayload): Promise<ExportResult> {
   try {
     const workbook = XLSX.utils.book_new();
 
-    const ordersRows = payload.orders.map((item) => ({
+    const ordersRows = payload.orders.map((item) => sanitizeSpreadsheetRow({
       id: item.id,
       cliente: item.clientName,
       estado: item.status,
@@ -38,7 +55,7 @@ export async function exportAdminWorkbook(payload: ExportPayload): Promise<Expor
       repartidor: item.assignedDriverName ?? '',
       actualizado: item.updatedAt,
     }));
-    const usersRows = payload.users.map((item) => ({
+    const usersRows = payload.users.map((item) => sanitizeSpreadsheetRow({
       id: item.id,
       username: item.username,
       nombre: item.fullName,
@@ -47,7 +64,7 @@ export async function exportAdminWorkbook(payload: ExportPayload): Promise<Expor
       correo: item.email,
       telefono: item.phone,
     }));
-    const productsRows = payload.products.map((item) => ({
+    const productsRows = payload.products.map((item) => sanitizeSpreadsheetRow({
       id: item.id,
       nombre: item.name,
       marca: item.brand,
@@ -56,11 +73,12 @@ export async function exportAdminWorkbook(payload: ExportPayload): Promise<Expor
       stock: item.stock ?? 0,
       descuento: item.discountPercent,
     }));
+    const kpiRows = payload.kpis.map((item) => sanitizeSpreadsheetRow(item));
 
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ordersRows), 'Pedidos');
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(usersRows), 'Usuarios');
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(productsRows), 'Productos');
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(payload.kpis), 'KPIs');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(kpiRows), 'KPIs');
 
     const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
     const fileUri = `${FileSystem.cacheDirectory ?? ''}reporte-admin-${Date.now()}.xlsx`;

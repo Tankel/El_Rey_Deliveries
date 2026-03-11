@@ -1,5 +1,6 @@
 import { Link } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 export default function SupportScreen() {
   return (
@@ -34,46 +35,46 @@ export default function SupportScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 12,
     gap: 6,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: typography.subtitle,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   question: {
     fontWeight: '700',
     marginTop: 6,
-    color: '#111827',
+    color: colors.textPrimary,
   },
   answer: {
-    color: '#4b5563',
+    color: colors.textSecondary,
   },
   actionButton: {
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: colors.borderStrong,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.surfaceMuted,
   },
   actionButtonText: {
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '600',
   },
 });

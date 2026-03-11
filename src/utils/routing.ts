@@ -7,5 +7,5 @@ export function getHomeRouteByRole(role: UserRole): string {
   if (role === 'DRIVER') {
     return '/(driver)/deliveries';
   }
-  return '/(admin)/dashboard';
+  return '/(admin)/(tabs)/dashboard';
 }

@@ -1,21 +1,17 @@
-import { Redirect, Tabs } from 'expo-router';
-import { es } from '@/i18n/es';
+import { Redirect } from 'expo-router';
 import { useAuth } from '@/state/AuthContext';
+import { getHomeRouteByRole } from '@/utils/routing';
 
 export default function TabsLayout() {
-  const { user } = useAuth();
+  const { user, isHydrated } = useAuth();
+
+  if (!isHydrated) {
+    return null;
+  }
 
   if (!user) {
     return <Redirect href="/(auth)/login" />;
   }
 
-  return (
-    <Tabs>
-      <Tabs.Screen name="index" options={{ title: es.navigation.home }} />
-      <Tabs.Screen name="pedidos" options={{ title: es.navigation.orders }} />
-      <Tabs.Screen name="clientes" options={{ title: es.navigation.clients }} />
-      <Tabs.Screen name="inventario" options={{ title: es.navigation.inventory }} />
-      <Tabs.Screen name="perfil" options={{ title: es.navigation.profile }} />
-    </Tabs>
-  );
+  return <Redirect href={getHomeRouteByRole(user.role)} />;
 }

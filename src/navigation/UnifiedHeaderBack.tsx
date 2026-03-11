@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { colors, typography } from '@/ui/theme/tokens';
 
 type Props = {
   label: string;
@@ -22,7 +23,7 @@ export function UnifiedHeaderBack({ label, fallbackHref, style }: Props) {
         router.replace(fallbackHref as never);
       }}
     >
-      <Ionicons name="chevron-back" size={20} color="#111827" />
+      <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
       <Text style={styles.label}>{label}</Text>
     </Pressable>
   );
@@ -37,8 +38,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   label: {
-    color: '#111827',
-    fontSize: 17,
+    color: colors.textPrimary,
+    fontSize: typography.subtitle - 1,
     fontWeight: '600',
   },
 });

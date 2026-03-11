@@ -15,6 +15,8 @@ import { useCart } from '@/context/CartContext';
 import { formatProductPresentation } from '@/models/Product';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { appStyles } from '@/ui/theme/appStyles';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 function formatCurrency(value: number) {
   return `$${value.toFixed(2)}`;
@@ -42,8 +44,8 @@ export default function ProductDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.centerBox}>
-        <ActivityIndicator size="large" color="#111827" />
-        <Text>Cargando producto...</Text>
+        <ActivityIndicator size="large" color={colors.textPrimary} />
+        <Text style={appStyles.mutedText}>Cargando producto...</Text>
       </View>
     );
   }
@@ -51,7 +53,7 @@ export default function ProductDetailScreen() {
   if (!product) {
     return (
       <View style={styles.centerBox}>
-        <Text>Producto no encontrado.</Text>
+        <Text style={appStyles.emptyText}>Producto no encontrado.</Text>
       </View>
     );
   }
@@ -153,73 +155,74 @@ export default function ProductDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.background,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
   centerBox: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: 24,
+    gap: spacing.sm,
+    padding: spacing.xxl,
   },
   image: {
     width: '100%',
     height: 250,
-    borderRadius: 12,
-    backgroundColor: '#f3f4f6',
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceMuted,
   },
   name: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   metaText: {
-    color: '#4b5563',
+    color: colors.textSecondary,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   price: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   originalPrice: {
-    fontSize: 16,
-    color: '#6b7280',
+    fontSize: typography.body,
+    color: colors.textMuted,
     textDecorationLine: 'line-through',
   },
   discount: {
-    color: '#047857',
-    backgroundColor: '#ecfdf5',
+    color: colors.success,
+    backgroundColor: colors.successBg,
     borderWidth: 1,
-    borderColor: '#10b981',
-    borderRadius: 999,
+    borderColor: colors.successBorder,
+    borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 2,
     fontWeight: '700',
   },
   savings: {
     fontWeight: '600',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   stockOutText: {
-    color: '#991b1b',
+    color: colors.danger,
     fontWeight: '700',
   },
   stockLowText: {
-    color: '#9a3412',
+    color: colors.warning,
     fontWeight: '700',
   },
   qtyRow: {
-    gap: 8,
+    gap: spacing.sm,
   },
   qtyLabel: {
     fontWeight: '600',
+    color: colors.textPrimary,
   },
   stepper: {
     flexDirection: 'row',
@@ -231,15 +234,16 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
   },
   stepText: {
     fontSize: 20,
     fontWeight: '700',
+    color: colors.textPrimary,
   },
   qtyValue: {
     fontSize: 18,
@@ -248,15 +252,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   infoBlock: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    padding: 12,
+    borderColor: colors.border,
+    padding: spacing.md,
     gap: 4,
   },
   infoTitle: {
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
 });

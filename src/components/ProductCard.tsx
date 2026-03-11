@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { useRouter } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Product, formatProductPresentation } from '@/models/Product';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 type Props = {
   product: Product;
@@ -62,12 +63,12 @@ export const ProductCard = memo(ProductCardComponent);
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   cardPressed: {
     transform: [{ scale: 0.99 }],
@@ -76,75 +77,75 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 150,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.surfaceMuted,
   },
   content: {
-    padding: 12,
-    gap: 8,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
   name: {
-    fontSize: 16,
+    fontSize: typography.body,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   presentation: {
-    color: '#4b5563',
-    fontSize: 13,
+    color: colors.textSecondary,
+    fontSize: typography.caption,
   },
   stockOutText: {
-    color: '#991b1b',
+    color: colors.danger,
     fontWeight: '700',
     fontSize: 12,
   },
   stockLowText: {
-    color: '#9a3412',
+    color: colors.warning,
     fontWeight: '700',
     fontSize: 12,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   price: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   originalPrice: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.textMuted,
     textDecorationLine: 'line-through',
   },
   badge: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#10b981',
+    backgroundColor: colors.successBg,
+    borderColor: colors.successBorder,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   badgeText: {
-    color: '#047857',
+    color: colors.success,
     fontSize: 12,
     fontWeight: '700',
   },
   addButton: {
-    backgroundColor: '#111827',
-    borderRadius: 10,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addButtonPressed: {
-    backgroundColor: '#1f2937',
+    backgroundColor: colors.primaryPressed,
     transform: [{ scale: 0.98 }],
   },
   addButtonDisabled: {
-    backgroundColor: '#9ca3af',
+    backgroundColor: colors.textMuted,
   },
   addButtonText: {
-    color: '#ffffff',
+    color: colors.primaryText,
     fontWeight: '600',
   },
 });

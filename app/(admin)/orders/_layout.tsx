@@ -1,16 +1,11 @@
 import { Stack } from 'expo-router';
 import { es } from '@/i18n/es';
 import { UnifiedHeaderBack } from '@/navigation/UnifiedHeaderBack';
+import { standardStackScreenOptions } from '@/navigation/stackOptions';
 
 export default function AdminOrdersLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: '#ffffff' },
-        headerTintColor: '#111827',
-        headerTitleStyle: { color: '#111827', fontWeight: '700' },
-      }}
-    >
+    <Stack screenOptions={standardStackScreenOptions}>
       <Stack.Screen
         name="index"
         options={{

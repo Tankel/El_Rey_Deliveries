@@ -5,6 +5,7 @@ import { DriverNotificationsBell } from '@/components/driver/DriverNotifications
 import { es } from '@/i18n/es';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
+import { colors, radius, spacing } from '@/ui/theme/tokens';
 
 export default function DriverInboxScreen() {
   const router = useRouter();
@@ -51,14 +52,14 @@ export default function DriverInboxScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    padding: spacing.lg,
     gap: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   headerRow: {
     flexDirection: 'row',
@@ -66,31 +67,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   helperText: {
-    color: '#4b5563',
+    color: colors.textSecondary,
     fontSize: 12,
   },
   assignmentList: {
-    gap: 8,
+    gap: spacing.sm,
     paddingBottom: 10,
   },
   assignmentCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#dbeafe',
-    borderRadius: 12,
+    borderColor: colors.infoBorder,
+    borderRadius: radius.lg,
     padding: 10,
     gap: 4,
   },
   assignmentId: {
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   assignmentMeta: {
-    color: '#4b5563',
+    color: colors.textSecondary,
     fontSize: 12,
   },
   emptyText: {
-    color: '#6b7280',
+    color: colors.textMuted,
     textAlign: 'center',
     paddingVertical: 10,
   },

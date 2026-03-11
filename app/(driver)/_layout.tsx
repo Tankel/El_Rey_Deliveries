@@ -3,16 +3,17 @@ import { Tabs } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { es } from '@/i18n/es';
 import { RoleGate } from '@/navigation/RoleGate';
+import { colors } from '@/ui/theme/tokens';
 
 export default function DriverLayout() {
   return (
     <RoleGate allow={['DRIVER']}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
         <Tabs
           screenOptions={{
             headerShown: false,
-            tabBarActiveTintColor: '#111827',
-            tabBarInactiveTintColor: '#6b7280',
+            tabBarActiveTintColor: colors.textPrimary,
+            tabBarInactiveTintColor: colors.textMuted,
             tabBarStyle: {
               height: 62,
               paddingTop: 6,

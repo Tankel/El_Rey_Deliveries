@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text,
 import { useCart } from '@/context/CartContext';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 function formatCurrency(value: number) {
   return `$${value.toFixed(2)}`;
@@ -46,8 +47,8 @@ export default function CartScreen() {
   if (!isHydrated) {
     return (
       <View style={styles.centerBox}>
-        <ActivityIndicator size="large" color="#111827" />
-        <Text>Cargando carrito...</Text>
+        <ActivityIndicator size="large" color={colors.textPrimary} />
+        <Text style={styles.mutedText}>Cargando carrito...</Text>
       </View>
     );
   }
@@ -60,7 +61,7 @@ export default function CartScreen() {
         keyExtractor={(item) => item.product.id}
         ListEmptyComponent={
           <View style={styles.centerBox}>
-            <Text>Tu carrito esta vacio.</Text>
+            <Text style={styles.mutedText}>Tu carrito esta vacio.</Text>
           </View>
         }
         renderItem={({ item }) => (
@@ -68,7 +69,7 @@ export default function CartScreen() {
             <Image source={{ uri: item.product.image }} style={styles.image} />
             <View style={styles.itemInfo}>
               <Text style={styles.itemName}>{item.product.name}</Text>
-              <Text>{formatCurrency(item.product.price)} c/u</Text>
+              <Text style={styles.mutedText}>{formatCurrency(item.product.price)} c/u</Text>
               <View style={styles.qtyRow}>
                 <Pressable
                   style={styles.qtyButton}
@@ -109,8 +110,8 @@ export default function CartScreen() {
       />
 
       <View style={styles.summary}>
-        <Text>Subtotal: {formatCurrency(subtotal)}</Text>
-        <Text>Ahorro total: {formatCurrency(totalSavings)}</Text>
+        <Text style={styles.summaryText}>Subtotal: {formatCurrency(subtotal)}</Text>
+        <Text style={styles.summaryText}>Ahorro total: {formatCurrency(totalSavings)}</Text>
       </View>
 
       <PrimaryButton
@@ -128,29 +129,32 @@ export default function CartScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   centerBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 24,
+    gap: spacing.sm,
+    paddingVertical: spacing.xxl,
+  },
+  mutedText: {
+    color: colors.textMuted,
   },
   listContent: {
-    gap: 8,
+    gap: spacing.sm,
   },
   item: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 10,
     gap: 10,
     flexDirection: 'row',
@@ -159,8 +163,8 @@ const styles = StyleSheet.create({
   image: {
     width: 72,
     height: 72,
-    borderRadius: 10,
-    backgroundColor: '#f3f4f6',
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
   },
   itemInfo: {
     flex: 1,
@@ -168,7 +172,7 @@ const styles = StyleSheet.create({
   },
   itemName: {
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   qtyRow: {
     flexDirection: 'row',
@@ -178,16 +182,17 @@ const styles = StyleSheet.create({
   qtyButton: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
   },
   qtyButtonText: {
     fontWeight: '700',
     fontSize: 18,
+    color: colors.textPrimary,
   },
   qtyValue: {
     minWidth: 24,
@@ -197,20 +202,24 @@ const styles = StyleSheet.create({
   removeButton: {
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#fee2e2',
+    borderRadius: radius.sm,
+    backgroundColor: colors.dangerBg,
   },
   removeText: {
-    color: '#b91c1c',
+    color: colors.danger,
     fontWeight: '700',
   },
   summary: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     gap: 6,
+  },
+  summaryText: {
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
 });
 

@@ -4,18 +4,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCart } from '@/context/CartContext';
 import { es } from '@/i18n/es';
 import { RoleGate } from '@/navigation/RoleGate';
+import { colors } from '@/ui/theme/tokens';
 
 export default function ClientLayout() {
   const { itemCount } = useCart();
 
   return (
     <RoleGate allow={['CLIENT']}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
         <Tabs
           screenOptions={{
             headerShown: false,
-            tabBarActiveTintColor: '#111827',
-            tabBarInactiveTintColor: '#6b7280',
+            tabBarActiveTintColor: colors.textPrimary,
+            tabBarInactiveTintColor: colors.textMuted,
             tabBarStyle: {
               height: 62,
               paddingTop: 6,
@@ -39,8 +40,8 @@ export default function ClientLayout() {
               tabBarIcon: ({ color, size }) => <Ionicons name="cart-outline" color={color} size={size} />,
               tabBarBadge: itemCount > 0 ? itemCount : undefined,
               tabBarBadgeStyle: {
-                backgroundColor: '#dc2626',
-                color: '#ffffff',
+                backgroundColor: colors.danger,
+                color: colors.primaryText,
                 fontWeight: '700',
               },
             }}

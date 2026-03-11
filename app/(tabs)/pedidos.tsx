@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { usePedidos } from '@/features/pedidos/hooks/usePedidos';
 import { es } from '@/i18n/es';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
+import { colors, spacing, typography } from '@/ui/theme/tokens';
 
 export default function PedidosScreen() {
   const { pedidos, loadPedidos, createPedido, isLoading } = usePedidos();
@@ -41,12 +42,12 @@ export default function PedidosScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 10 },
-  title: { fontSize: 22, fontWeight: '700' },
+  container: { flex: 1, padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.background },
+  title: { fontSize: typography.title, fontWeight: '700', color: colors.textPrimary },
   item: {
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: colors.border,
   },
-  itemTitle: { fontWeight: '600' },
+  itemTitle: { fontWeight: '600', color: colors.textPrimary },
 });

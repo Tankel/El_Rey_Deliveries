@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useOrders } from '@/state/OrdersContext';
+import { colors, radius } from '@/ui/theme/tokens';
 
 export function AdminNotificationsBell() {
   const router = useRouter();
@@ -52,7 +53,7 @@ export function AdminNotificationsBell() {
   return (
     <>
       <Pressable style={styles.bellButton} onPress={openPanel}>
-        <Ionicons name="notifications-outline" size={24} color="#111827" />
+        <Ionicons name="notifications-outline" size={24} color={colors.textPrimary} />
         {unreadNotificationsCount > 0 ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{unreadNotificationsCount}</Text>
@@ -76,7 +77,7 @@ export function AdminNotificationsBell() {
             <View style={styles.panelHeader}>
               <Text style={styles.panelTitle}>Pedidos nuevos</Text>
               <Pressable onPress={closePanel}>
-                <Ionicons name="close" size={22} color="#111827" />
+                <Ionicons name="close" size={22} color={colors.textPrimary} />
               </Pressable>
             </View>
 
@@ -113,10 +114,10 @@ const styles = StyleSheet.create({
   bellButton: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#ffffff',
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -128,12 +129,12 @@ const styles = StyleSheet.create({
     height: 18,
     paddingHorizontal: 4,
     borderRadius: 9,
-    backgroundColor: '#dc2626',
+    backgroundColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeText: {
-    color: '#ffffff',
+    color: colors.primaryText,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(17,24,39,0.15)',
+    backgroundColor: 'rgba(15,23,42,0.15)',
   },
   backdrop: {
     flex: 1,
@@ -149,9 +150,9 @@ const styles = StyleSheet.create({
   panel: {
     width: 320,
     maxWidth: '86%',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderLeftWidth: 1,
-    borderLeftColor: '#e5e7eb',
+    borderLeftColor: colors.border,
     paddingTop: 14,
     paddingHorizontal: 12,
     paddingBottom: 20,
@@ -165,33 +166,33 @@ const styles = StyleSheet.create({
   panelTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   panelBody: {
     gap: 8,
     paddingBottom: 12,
   },
   emptyText: {
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   notificationItem: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     padding: 10,
     gap: 4,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
   },
   unreadItem: {
-    borderColor: '#93c5fd',
-    backgroundColor: '#eff6ff',
+    borderColor: colors.infoBorder,
+    backgroundColor: colors.infoBg,
   },
   notificationText: {
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   notificationDate: {
-    color: '#6b7280',
+    color: colors.textMuted,
     fontSize: 12,
   },
 });

@@ -5,6 +5,7 @@ import { useProfile } from '@/context/ProfileContext';
 import { useAuth } from '@/state/AuthContext';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 type FormState = {
   fullName: string;
@@ -25,7 +26,7 @@ const EMPTY_FORM: FormState = {
   taxId: '',
   billingAddress: '',
 };
-const PLACEHOLDER_COLOR = '#6b7280';
+const PLACEHOLDER_COLOR = colors.textMuted;
 
 export default function ClientProfileScreen() {
   const { user, signOut } = useAuth();
@@ -52,8 +53,8 @@ export default function ClientProfileScreen() {
   if (!isHydrated || !profile) {
     return (
       <View style={styles.centerBox}>
-        <ActivityIndicator size="large" color="#111827" />
-        <Text>Cargando perfil...</Text>
+        <ActivityIndicator size="large" color={colors.textPrimary} />
+        <Text style={styles.metaText}>Cargando perfil...</Text>
       </View>
     );
   }
@@ -162,63 +163,63 @@ export default function ClientProfileScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.background,
   },
   centerBox: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 12,
-    gap: 8,
+    gap: spacing.sm,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: typography.subtitle,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   fieldLabel: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '700',
     fontSize: 13,
     marginTop: 2,
   },
   input: {
-    borderColor: '#9ca3af',
+    borderColor: colors.borderStrong,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: radius.md,
     paddingHorizontal: 10,
     paddingVertical: 10,
-    backgroundColor: '#f8fafc',
-    color: '#111827',
+    backgroundColor: colors.surfaceMuted,
+    color: colors.textPrimary,
   },
   metaText: {
-    color: '#4b5563',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   actionButton: {
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: colors.borderStrong,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.surfaceMuted,
   },
   actionButtonText: {
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '600',
   },
 });

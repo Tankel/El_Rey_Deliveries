@@ -7,6 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { createContext, PropsWithChildren, useContext, useMemo, useRef, useState } from 'react';
+import { colors, radius } from '@/ui/theme/tokens';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -95,28 +96,28 @@ const styles = StyleSheet.create({
   },
   toast: {
     width: '100%',
-    borderRadius: 12,
+    borderRadius: radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
   },
   text: {
-    color: '#ffffff',
+    color: colors.primaryText,
     fontWeight: '600',
   },
 });
 
 const toneStyles: Record<ToastType, ViewStyle> = {
   success: {
-    backgroundColor: '#166534',
-    borderColor: '#22c55e',
+    backgroundColor: colors.success,
+    borderColor: colors.successBorder,
   },
   error: {
-    backgroundColor: '#7f1d1d',
-    borderColor: '#ef4444',
+    backgroundColor: colors.danger,
+    borderColor: colors.dangerBorder,
   },
   info: {
-    backgroundColor: '#1f2937',
-    borderColor: '#6b7280',
+    backgroundColor: colors.primaryPressed,
+    borderColor: colors.textMuted,
   },
 };

@@ -55,6 +55,8 @@ export type Order = {
   assignedDriverName?: string;
   statusHistory?: OrderStatusHistoryEntry[];
   deliveryProof?: DeliveryProof;
+  stockReservedAt?: string;
+  stockReleasedAt?: string;
   createdAt: string;
   updatedAt: string;
 };

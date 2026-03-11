@@ -1,6 +1,8 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import { useCatalog } from '@/context/CatalogContext';
 import { jsonStorage } from '@/core/storage/jsonStorage';
 import { es } from '@/i18n/es';
+import { Product } from '@/models/Product';
 import {
   DeliveryProof,
   DriverProfile,
@@ -94,6 +96,7 @@ const initialOrders: Order[] = [
 const OrdersContext = createContext<OrdersContextValue | undefined>(undefined);
 const ORDERS_STORAGE_KEY = 'mvp.orders.items';
 const ORDER_NOTIFICATIONS_STORAGE_KEY = 'mvp.orders.notifications';
+const CURRENCY_EPSILON = 0.01;
 
 const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
   PENDIENTE: ['CONFIRMADO', 'CANCELADO'],
@@ -110,8 +113,130 @@ function canTransition(current: OrderStatus, next: OrderStatus) {
   return allowedTransitions[current].includes(next);
 }
 
+function requiresPrepayment(method: PaymentMethod) {
+  return method === 'TARJETA' || method === 'TRANSFERENCIA';
+}
+
+function getOrderPaymentValidation(order: Order, nextStatus: OrderStatus): ActionResult {
+  if (nextStatus === 'CANCELADO') {
+    return { ok: true, message: 'ok' };
+  }
+
+  const paymentMethod = order.paymentMethod ?? 'EFECTIVO';
+  const paymentStatus = order.paymentStatus ?? 'PENDIENTE_PAGO';
+
+  if (paymentStatus === 'RECHAZADO') {
+    return {
+      ok: false,
+      message: 'No puedes avanzar el pedido porque el pago fue rechazado.',
+    };
+  }
+
+  if (requiresPrepayment(paymentMethod) && paymentStatus !== 'PAGADO_SIMULADO') {
+    return {
+      ok: false,
+      message: 'Este pedido requiere pago confirmado antes de avanzar.',
+    };
+  }
+
+  return { ok: true, message: 'ok' };
+}
+
 function toIsoNow() {
   return new Date().toISOString();
+}
+
+function calculateItemsTotal(items: OrderItem[]) {
+  return items.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
+}
+
+type StockPlanEntry = {
+  productId: string;
+  productName: string;
+  currentStock: number;
+  nextStock: number;
+  quantity: number;
+};
+
+type StockPlanResult = {
+  ok: boolean;
+  message: string;
+  entries: StockPlanEntry[];
+};
+
+function buildReserveStockPlan(items: OrderItem[], products: Product[]): StockPlanResult {
+  const entries: StockPlanEntry[] = [];
+  const quantities = new Map<string, { productName: string; quantity: number }>();
+
+  for (const item of items) {
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+      return { ok: false, message: `Cantidad invalida para ${item.productName}.`, entries: [] };
+    }
+    const previous = quantities.get(item.productId);
+    quantities.set(item.productId, {
+      productName: item.productName,
+      quantity: (previous?.quantity ?? 0) + item.quantity,
+    });
+  }
+
+  for (const [productId, quantityData] of quantities.entries()) {
+    const product = products.find((candidate) => candidate.id === productId);
+    if (!product) {
+      return { ok: false, message: `Producto no encontrado: ${quantityData.productName}.`, entries: [] };
+    }
+    const currentStock = product.stock ?? 0;
+    if (currentStock < quantityData.quantity) {
+      return {
+        ok: false,
+        message: `Stock insuficiente para ${product.name}. Disponible: ${currentStock}.`,
+        entries: [],
+      };
+    }
+
+    entries.push({
+      productId: product.id,
+      productName: product.name,
+      quantity: quantityData.quantity,
+      currentStock,
+      nextStock: currentStock - quantityData.quantity,
+    });
+  }
+
+  return { ok: true, message: 'ok', entries };
+}
+
+function buildReleaseStockPlan(items: OrderItem[], products: Product[]) {
+  const entries: StockPlanEntry[] = [];
+  const quantities = new Map<string, { productName: string; quantity: number }>();
+
+  for (const item of items) {
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+      continue;
+    }
+    const previous = quantities.get(item.productId);
+    quantities.set(item.productId, {
+      productName: item.productName,
+      quantity: (previous?.quantity ?? 0) + item.quantity,
+    });
+  }
+
+  for (const [productId, quantityData] of quantities.entries()) {
+    const product = products.find((candidate) => candidate.id === productId);
+    if (!product) {
+      continue;
+    }
+    const currentStock = product.stock ?? 0;
+
+    entries.push({
+      productId: product.id,
+      productName: product.name,
+      quantity: quantityData.quantity,
+      currentStock,
+      nextStock: currentStock + quantityData.quantity,
+    });
+  }
+
+  return entries;
 }
 
 function normalizeOrder(order: Order): Order {
@@ -144,6 +269,10 @@ function normalizeOrder(order: Order): Order {
     statusHistory,
     paymentMethod: order.paymentMethod ?? 'EFECTIVO',
     paymentStatus: order.paymentStatus ?? 'PENDIENTE_PAGO',
+    stockReservedAt:
+      order.stockReservedAt ??
+      (order.status !== 'CANCELADO' && order.items?.length ? createdAt : undefined),
+    stockReleasedAt: order.stockReleasedAt,
   };
 }
 
@@ -235,6 +364,7 @@ function buildDeliveryProof(
 }
 
 export function OrdersProvider({ children }: PropsWithChildren) {
+  const { products, updateProduct } = useCatalog();
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [notifications, setNotifications] = useState<OrderNotification[]>([]);
 
@@ -260,6 +390,23 @@ export function OrdersProvider({ children }: PropsWithChildren) {
     void jsonStorage.write(ORDER_NOTIFICATIONS_STORAGE_KEY, notifications);
   }, [notifications]);
 
+  const applyStockPlan = (entries: StockPlanEntry[]): ActionResult => {
+    const applied: Array<{ productId: string; previousStock: number }> = [];
+
+    for (const entry of entries) {
+      const result = updateProduct(entry.productId, { stock: entry.nextStock });
+      if (!result.ok) {
+        applied.forEach((rollback) => {
+          updateProduct(rollback.productId, { stock: rollback.previousStock });
+        });
+        return result;
+      }
+      applied.push({ productId: entry.productId, previousStock: entry.currentStock });
+    }
+
+    return { ok: true, message: 'Stock actualizado.' };
+  };
+
   const value = useMemo<OrdersContextValue>(
     () => ({
       drivers: initialDrivers,
@@ -267,18 +414,63 @@ export function OrdersProvider({ children }: PropsWithChildren) {
       notifications,
       unreadNotificationsCount: notifications.filter((item) => !item.read && item.audience === 'ADMIN').length,
       createOrder: (payload: CreateOrderPayload) => {
+        const paymentMethod = payload.paymentMethod ?? 'EFECTIVO';
+        const paymentStatus = payload.paymentStatus ?? 'PENDIENTE_PAGO';
+        const normalizedAddress = payload.address.trim();
+        const items = payload.items ?? [];
+
+        if (!payload.clientId.trim()) {
+          return { ok: false, message: 'No se pudo crear el pedido: cliente invalido.' };
+        }
+        if (!payload.clientName.trim()) {
+          return { ok: false, message: 'No se pudo crear el pedido: nombre de cliente invalido.' };
+        }
+        if (!normalizedAddress) {
+          return { ok: false, message: 'Debes capturar una direccion valida.' };
+        }
+        if (!items.length) {
+          return { ok: false, message: 'El pedido debe contener al menos un producto.' };
+        }
+        if (paymentStatus === 'RECHAZADO') {
+          return { ok: false, message: 'No se puede crear un pedido con pago rechazado.' };
+        }
+        if (requiresPrepayment(paymentMethod) && paymentStatus !== 'PAGADO_SIMULADO') {
+          return {
+            ok: false,
+            message: 'Este metodo de pago requiere confirmacion antes de crear el pedido.',
+          };
+        }
+
+        const expectedTotal = calculateItemsTotal(items);
+        if (!Number.isFinite(payload.total) || payload.total <= 0) {
+          return { ok: false, message: 'El total del pedido es invalido.' };
+        }
+        if (Math.abs(expectedTotal - payload.total) > CURRENCY_EPSILON) {
+          return { ok: false, message: 'El total del pedido no coincide con el detalle de productos.' };
+        }
+
+        const reservePlan = buildReserveStockPlan(items, products);
+        if (!reservePlan.ok) {
+          return { ok: false, message: reservePlan.message };
+        }
+        const reserveResult = applyStockPlan(reservePlan.entries);
+        if (!reserveResult.ok) {
+          return reserveResult;
+        }
+
         const timestamp = toIsoNow();
         const nextOrder: Order = {
           id: `order-${Date.now()}`,
           clientId: payload.clientId,
           clientName: payload.clientName,
-          address: payload.address,
+          address: normalizedAddress,
           total: payload.total,
           notes: payload.notes,
-          items: payload.items,
-          paymentMethod: payload.paymentMethod ?? 'EFECTIVO',
-          paymentStatus: payload.paymentStatus ?? 'PENDIENTE_PAGO',
+          items,
+          paymentMethod,
+          paymentStatus,
           status: 'PENDIENTE',
+          stockReservedAt: timestamp,
           createdAt: timestamp,
           updatedAt: timestamp,
           statusHistory: [
@@ -370,6 +562,10 @@ export function OrdersProvider({ children }: PropsWithChildren) {
         if (!driver) {
           return { ok: false, message: es.orders.driverNotFound };
         }
+        const paymentValidation = getOrderPaymentValidation(order, 'ASIGNADO');
+        if (!paymentValidation.ok) {
+          return paymentValidation;
+        }
 
         const timestamp = toIsoNow();
         setOrders((prev) =>
@@ -422,6 +618,10 @@ export function OrdersProvider({ children }: PropsWithChildren) {
             message: 'El repartidor no puede cancelar pedidos.',
           };
         }
+        const paymentValidation = getOrderPaymentValidation(order, nextStatus);
+        if (!paymentValidation.ok) {
+          return paymentValidation;
+        }
 
         if (nextStatus === 'CONFIRMADO' && !order.assignedDriverId) {
           return {
@@ -449,6 +649,14 @@ export function OrdersProvider({ children }: PropsWithChildren) {
           };
         }
 
+        if (nextStatus === 'CANCELADO' && order.stockReservedAt && !order.stockReleasedAt) {
+          const releaseEntries = buildReleaseStockPlan(order.items ?? [], products);
+          const releaseResult = applyStockPlan(releaseEntries);
+          if (!releaseResult.ok) {
+            return releaseResult;
+          }
+        }
+
         setOrders((prev) =>
           prev.map((item) =>
             item.id === orderId && canTransition(item.status, nextStatus)
@@ -462,6 +670,10 @@ export function OrdersProvider({ children }: PropsWithChildren) {
                     note: options?.deliveryNote?.trim(),
                   }),
                   deliveryProof: nextStatus === 'ENTREGADO' ? deliveryProof ?? item.deliveryProof : item.deliveryProof,
+                  stockReleasedAt:
+                    nextStatus === 'CANCELADO' && item.stockReservedAt && !item.stockReleasedAt
+                      ? timestamp
+                      : item.stockReleasedAt,
                 }
               : item,
           ),
@@ -482,6 +694,30 @@ export function OrdersProvider({ children }: PropsWithChildren) {
           return { ok: false, message: es.orders.alreadyInStatus(nextStatus) };
         }
 
+        const paymentValidation = getOrderPaymentValidation(order, nextStatus);
+        if (!paymentValidation.ok) {
+          return paymentValidation;
+        }
+
+        if (nextStatus === 'CANCELADO' && order.stockReservedAt && !order.stockReleasedAt) {
+          const releaseEntries = buildReleaseStockPlan(order.items ?? [], products);
+          const releaseResult = applyStockPlan(releaseEntries);
+          if (!releaseResult.ok) {
+            return releaseResult;
+          }
+        }
+
+        if (order.status === 'CANCELADO' && nextStatus !== 'CANCELADO' && order.stockReleasedAt) {
+          const reservePlan = buildReserveStockPlan(order.items ?? [], products);
+          if (!reservePlan.ok) {
+            return reservePlan;
+          }
+          const reserveResult = applyStockPlan(reservePlan.entries);
+          if (!reserveResult.ok) {
+            return reserveResult;
+          }
+        }
+
         const timestamp = toIsoNow();
         setOrders((prev) =>
           prev.map((item) =>
@@ -493,6 +729,16 @@ export function OrdersProvider({ children }: PropsWithChildren) {
                   statusHistory: appendStatusHistory(item, nextStatus, timestamp, {
                     byRole: 'ADMIN',
                   }),
+                  stockReleasedAt:
+                    nextStatus === 'CANCELADO' && item.stockReservedAt && !item.stockReleasedAt
+                      ? timestamp
+                      : item.status === 'CANCELADO' && nextStatus !== 'CANCELADO'
+                        ? undefined
+                        : item.stockReleasedAt,
+                  stockReservedAt:
+                    item.status === 'CANCELADO' && nextStatus !== 'CANCELADO'
+                      ? timestamp
+                      : item.stockReservedAt,
                 }
               : item,
           ),
@@ -527,7 +773,7 @@ export function OrdersProvider({ children }: PropsWithChildren) {
         setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
       },
     }),
-    [notifications, orders],
+    [notifications, orders, products, updateProduct],
   );
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;

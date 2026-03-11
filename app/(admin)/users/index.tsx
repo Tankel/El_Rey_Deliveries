@@ -1,10 +1,13 @@
-import { useMemo, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { AdminUser } from '@/models/AdminUser';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Alert, FlatList, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useUsers } from '@/context/UsersContext';
+import { AdminUser } from '@/models/AdminUser';
 import { UserRole } from '@/types/domain';
+import { SearchField } from '@/ui/components/atoms/SearchField';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { useDebouncedValue } from '@/ui/hooks/useDebouncedValue';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 type UserColumn = 'username' | 'fullName' | 'role' | 'email' | 'phone' | 'isActive';
 
@@ -36,12 +39,16 @@ const EMPTY_FORM: UserFormState = {
   role: 'CLIENT',
   isActive: true,
 };
-const PLACEHOLDER_COLOR = '#6b7280';
+
+const PLACEHOLDER_COLOR = colors.textMuted;
 
 export default function AdminUsersScreen() {
   const { users, createUser, updateUser, deleteUser } = useUsers();
   const { showToast } = useToast();
+  const listRef = useRef<FlatList<AdminUser>>(null);
+
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query);
   const [visibleColumns, setVisibleColumns] = useState<UserColumn[]>([
     'username',
     'fullName',
@@ -51,11 +58,11 @@ export default function AdminUsersScreen() {
   const [showColumnFilters, setShowColumnFilters] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState<UserFormState>(EMPTY_FORM);
-  const scrollRef = useRef<ScrollView>(null);
 
   const filteredUsers = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = debouncedQuery.trim().toLowerCase();
     if (!normalized) {
       return users;
     }
@@ -65,47 +72,53 @@ export default function AdminUsersScreen() {
         user.fullName.toLowerCase().includes(normalized) ||
         user.email.toLowerCase().includes(normalized),
     );
-  }, [query, users]);
+  }, [debouncedQuery, users]);
 
-  const toggleColumn = (column: UserColumn) => {
+  const toggleColumn = useCallback((column: UserColumn) => {
     setVisibleColumns((prev) =>
       prev.includes(column) ? prev.filter((item) => item !== column) : [...prev, column],
     );
-  };
+  }, []);
 
-  const openCreateForm = () => {
+  const scrollToTop = useCallback(() => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+  }, []);
+
+  const openCreateForm = useCallback(() => {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setIsFormOpen(true);
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-    }, 0);
-  };
+    scrollToTop();
+  }, [scrollToTop]);
 
-  const startEdit = (user: AdminUser) => {
-    setEditingId(user.id);
-    setForm({
-      username: user.username,
-      password: '',
-      fullName: user.fullName,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      isActive: user.isActive,
-    });
-    setIsFormOpen(true);
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-    }, 0);
-  };
+  const startEdit = useCallback(
+    (user: AdminUser) => {
+      setEditingId(user.id);
+      setForm({
+        username: user.username,
+        password: '',
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        isActive: user.isActive,
+      });
+      setIsFormOpen(true);
+      scrollToTop();
+    },
+    [scrollToTop],
+  );
 
-  const closeForm = () => {
+  const closeForm = useCallback(() => {
     setIsFormOpen(false);
     setEditingId(null);
     setForm(EMPTY_FORM);
-  };
+  }, []);
 
-  const save = () => {
+  const save = useCallback(async () => {
+    setIsSaving(true);
     const result = editingId
       ? updateUser(editingId, {
           ...form,
@@ -117,237 +130,312 @@ export default function AdminUsersScreen() {
           username: form.username.trim().toLowerCase(),
           password: form.password.trim(),
         });
-    showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
-    if (result.ok) {
+    const resolved = await result;
+    setIsSaving(false);
+    showToast({ message: resolved.message, type: resolved.ok ? 'success' : 'error' });
+    if (resolved.ok) {
       closeForm();
     }
-  };
+  }, [closeForm, createUser, editingId, form, showToast, updateUser]);
 
-  const remove = (userId: string) => {
-    const result = deleteUser(userId);
-    showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
-    if (editingId === userId) {
-      closeForm();
-    }
-  };
+  const remove = useCallback(
+    (user: AdminUser) => {
+      Alert.alert(
+        'Eliminar usuario',
+        `Se eliminara el usuario "${user.username}". Esta accion no se puede deshacer.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: () => {
+              const result = deleteUser(user.id);
+              showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+              if (editingId === user.id) {
+                closeForm();
+              }
+            },
+          },
+        ],
+      );
+    },
+    [closeForm, deleteUser, editingId, showToast],
+  );
 
-  return (
-    <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>Usuarios</Text>
-        <Pressable style={styles.addButton} onPress={openCreateForm}>
-          <Ionicons name="add-circle-outline" size={18} color="#ffffff" />
-          <Text style={styles.addButtonText}>Agregar usuario</Text>
-        </Pressable>
-      </View>
-
-      {isFormOpen ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{editingId ? 'Editar usuario' : 'Agregar usuario'}</Text>
-          <Text style={styles.fieldLabel}>Username</Text>
-          <TextInput
-            value={form.username}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, username: value }))}
-            placeholder="Username"
-            autoCapitalize="none"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={styles.input}
-          />
-          <Text style={styles.fieldLabel}>
-            {editingId ? 'Nueva contraseña (opcional)' : 'Contraseña'}
-          </Text>
-          <TextInput
-            value={form.password}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, password: value }))}
-            placeholder={editingId ? 'Dejar vacio para conservar' : 'Minimo 6 caracteres'}
-            secureTextEntry
-            autoCapitalize="none"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={styles.input}
-          />
-          <Text style={styles.fieldLabel}>Nombre completo</Text>
-          <TextInput
-            value={form.fullName}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, fullName: value }))}
-            placeholder="Nombre completo"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={styles.input}
-          />
-          <Text style={styles.fieldLabel}>Correo</Text>
-          <TextInput
-            value={form.email}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
-            placeholder="Correo"
-            autoCapitalize="none"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={styles.input}
-          />
-          <Text style={styles.fieldLabel}>Telefono</Text>
-          <TextInput
-            value={form.phone}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value }))}
-            placeholder="Telefono"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={styles.input}
-          />
-
-          <View style={styles.roleRow}>
-            {(['CLIENT', 'ADMIN', 'DRIVER'] as UserRole[]).map((role) => {
-              const selected = role === form.role;
-              return (
-                <Pressable
-                  key={role}
-                  onPress={() => setForm((prev) => ({ ...prev, role }))}
-                  style={[styles.chip, selected && styles.chipSelected]}
-                >
-                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{role}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.switchRow}>
-            <Text>Activo</Text>
-            <Switch
-              value={form.isActive}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, isActive: value }))}
-            />
-          </View>
-
-          <View style={styles.formActions}>
-            <Pressable style={styles.saveButton} onPress={save}>
-              <Text style={styles.saveButtonText}>{editingId ? 'Guardar usuario' : 'Crear usuario'}</Text>
-            </Pressable>
-            <Pressable style={styles.cancelButton} onPress={closeForm}>
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : null}
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Tabla de usuarios</Text>
-        <View style={styles.searchRow}>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Filtrar usuarios"
-            placeholderTextColor={PLACEHOLDER_COLOR}
-            style={[styles.input, styles.searchInput]}
-          />
-          <Pressable
-            style={styles.filterButton}
-            onPress={() => setShowColumnFilters((prev) => !prev)}
-          >
-            <Ionicons name="options-outline" size={18} color="#0f172a" />
+  const renderRow = useCallback(
+    ({ item }: { item: AdminUser }) => (
+      <View style={styles.row}>
+        {visibleColumns.includes('username') ? <Text style={styles.cell}>{item.username}</Text> : null}
+        {visibleColumns.includes('fullName') ? <Text style={styles.cell}>{item.fullName}</Text> : null}
+        {visibleColumns.includes('role') ? <Text style={styles.cell}>{item.role}</Text> : null}
+        {visibleColumns.includes('email') ? <Text style={styles.cell}>{item.email}</Text> : null}
+        {visibleColumns.includes('phone') ? <Text style={styles.cell}>{item.phone}</Text> : null}
+        {visibleColumns.includes('isActive') ? (
+          <Text style={styles.cell}>{item.isActive ? 'Activo' : 'Inactivo'}</Text>
+        ) : null}
+        <View style={styles.rowActions}>
+          <Pressable style={styles.actionBtn} onPress={() => startEdit(item)}>
+            <Text style={styles.actionText}>Editar</Text>
+          </Pressable>
+          <Pressable style={[styles.actionBtn, styles.deleteBtn]} onPress={() => remove(item)}>
+            <Text style={[styles.actionText, styles.deleteText]}>Eliminar</Text>
           </Pressable>
         </View>
-        {showColumnFilters ? (
-          <View style={styles.chipsWrap}>
-            {ALL_COLUMNS.map((column) => {
-              const selected = visibleColumns.includes(column.key);
-              return (
-                <Pressable
-                  key={column.key}
-                  onPress={() => toggleColumn(column.key)}
-                  style={[styles.chip, selected && styles.chipSelected]}
-                >
-                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{column.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
-        {filteredUsers.map((item) => (
-          <View key={item.id} style={styles.row}>
-            {visibleColumns.includes('username') ? <Text style={styles.cell}>{item.username}</Text> : null}
-            {visibleColumns.includes('fullName') ? <Text style={styles.cell}>{item.fullName}</Text> : null}
-            {visibleColumns.includes('role') ? <Text style={styles.cell}>{item.role}</Text> : null}
-            {visibleColumns.includes('email') ? <Text style={styles.cell}>{item.email}</Text> : null}
-            {visibleColumns.includes('phone') ? <Text style={styles.cell}>{item.phone}</Text> : null}
-            {visibleColumns.includes('isActive') ? (
-              <Text style={styles.cell}>{item.isActive ? 'Activo' : 'Inactivo'}</Text>
-            ) : null}
-            <View style={styles.rowActions}>
-              <Pressable style={styles.actionBtn} onPress={() => startEdit(item)}>
-                <Text style={styles.actionText}>Editar</Text>
+      </View>
+    ),
+    [remove, startEdit, visibleColumns],
+  );
+
+  const header = useMemo(
+    () => (
+      <View style={styles.headerContent}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Usuarios</Text>
+          <Pressable style={styles.addButton} onPress={openCreateForm}>
+            <Ionicons name="add-circle-outline" size={18} color={colors.primaryText} />
+            <Text style={styles.addButtonText}>Agregar usuario</Text>
+          </Pressable>
+        </View>
+
+        {isFormOpen ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{editingId ? 'Editar usuario' : 'Agregar usuario'}</Text>
+
+            <Text style={styles.fieldLabel}>Username</Text>
+            <TextInput
+              value={form.username}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, username: value }))}
+              placeholder="Username"
+              autoCapitalize="none"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={styles.input}
+            />
+
+            <Text style={styles.fieldLabel}>
+              {editingId ? 'Nueva contrasena (opcional)' : 'Contrasena'}
+            </Text>
+            <TextInput
+              value={form.password}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, password: value }))}
+              placeholder={editingId ? 'Dejar vacio para conservar' : 'Minimo 6 caracteres'}
+              secureTextEntry
+              autoCapitalize="none"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={styles.input}
+            />
+
+            <Text style={styles.fieldLabel}>Nombre completo</Text>
+            <TextInput
+              value={form.fullName}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, fullName: value }))}
+              placeholder="Nombre completo"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={styles.input}
+            />
+
+            <Text style={styles.fieldLabel}>Correo</Text>
+            <TextInput
+              value={form.email}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
+              placeholder="Correo"
+              autoCapitalize="none"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={styles.input}
+            />
+
+            <Text style={styles.fieldLabel}>Telefono</Text>
+            <TextInput
+              value={form.phone}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value }))}
+              placeholder="Telefono"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              style={styles.input}
+            />
+
+            <View style={styles.roleRow}>
+              {(['CLIENT', 'ADMIN', 'DRIVER'] as UserRole[]).map((role) => {
+                const selected = role === form.role;
+                return (
+                  <Pressable
+                    key={role}
+                    onPress={() => setForm((prev) => ({ ...prev, role }))}
+                    style={[styles.chip, selected && styles.chipSelected]}
+                  >
+                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{role}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.switchRow}>
+              <Text style={styles.switchText}>Activo</Text>
+              <Switch
+                value={form.isActive}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, isActive: value }))}
+              />
+            </View>
+
+            <View style={styles.formActions}>
+              <Pressable style={styles.saveButton} onPress={() => void save()} disabled={isSaving}>
+                <Text style={styles.saveButtonText}>
+                  {isSaving ? 'Guardando...' : editingId ? 'Guardar usuario' : 'Crear usuario'}
+                </Text>
               </Pressable>
-              <Pressable style={[styles.actionBtn, styles.deleteBtn]} onPress={() => remove(item.id)}>
-                <Text style={[styles.actionText, styles.deleteText]}>Eliminar</Text>
+              <Pressable style={styles.cancelButton} onPress={closeForm}>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
               </Pressable>
             </View>
           </View>
-        ))}
-        {filteredUsers.length === 0 ? <Text style={styles.emptyText}>No hay usuarios para ese filtro.</Text> : null}
+        ) : null}
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Tabla de usuarios</Text>
+          <View style={styles.searchRow}>
+            <SearchField
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Filtrar usuarios"
+              style={styles.searchInput}
+            />
+            <Pressable style={styles.filterButton} onPress={() => setShowColumnFilters((prev) => !prev)}>
+              <Ionicons name="options-outline" size={18} color={colors.textPrimary} />
+            </Pressable>
+          </View>
+          {showColumnFilters ? (
+            <View style={styles.chipsWrap}>
+              {ALL_COLUMNS.map((column) => {
+                const selected = visibleColumns.includes(column.key);
+                return (
+                  <Pressable
+                    key={column.key}
+                    onPress={() => toggleColumn(column.key)}
+                    style={[styles.chip, selected && styles.chipSelected]}
+                  >
+                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{column.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
       </View>
-    </ScrollView>
+    ),
+    [
+      closeForm,
+      editingId,
+      form.email,
+      form.fullName,
+      form.isActive,
+      form.password,
+      form.phone,
+      form.role,
+      form.username,
+      isFormOpen,
+      isSaving,
+      openCreateForm,
+      query,
+      save,
+      showColumnFilters,
+      toggleColumn,
+      visibleColumns,
+    ],
+  );
+
+  return (
+    <FlatList
+      ref={listRef}
+      style={styles.container}
+      contentContainerStyle={styles.listContent}
+      data={filteredUsers}
+      keyExtractor={(item) => item.id}
+      renderItem={renderRow}
+      ItemSeparatorComponent={() => <View style={styles.rowSpacer} />}
+      ListHeaderComponent={header}
+      ListEmptyComponent={
+        <View style={styles.card}>
+          <Text style={styles.emptyText}>No hay usuarios para ese filtro.</Text>
+        </View>
+      }
+      keyboardShouldPersistTaps="handled"
+      initialNumToRender={10}
+      maxToRenderPerBatch={10}
+      windowSize={7}
+      removeClippedSubviews
+    />
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  listContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  headerContent: {
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   addButton: {
     borderWidth: 1,
-    borderColor: '#111827',
-    backgroundColor: '#111827',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   addButtonText: {
-    color: '#ffffff',
+    color: colors.primaryText,
     fontWeight: '700',
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: typography.subtitle,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   fieldLabel: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: typography.caption,
     marginTop: 2,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#9ca3af',
-    borderRadius: 10,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
     paddingHorizontal: 10,
     paddingVertical: 9,
-    backgroundColor: '#f8fafc',
-    color: '#111827',
+    backgroundColor: colors.surfaceMuted,
+    color: colors.textPrimary,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   searchInput: {
     flex: 1,
@@ -356,116 +444,124 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   roleRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.sm,
   },
   chip: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 999,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
   },
   chipSelected: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipText: {
-    color: '#4b5563',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   chipTextSelected: {
-    color: '#ffffff',
+    color: colors.primaryText,
   },
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  switchText: {
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
   formActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     marginTop: 4,
   },
   saveButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#111827',
-    backgroundColor: '#111827',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: 11,
     alignItems: 'center',
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: colors.primaryText,
     fontWeight: '800',
   },
   cancelButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: 11,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '700',
+  },
+  rowSpacer: {
+    height: spacing.sm,
   },
   row: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 10,
-    padding: 10,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
     gap: 4,
-    marginTop: 8,
+    backgroundColor: colors.surface,
   },
   cell: {
-    color: '#111827',
+    color: colors.textPrimary,
   },
   rowActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     marginTop: 6,
   },
   actionBtn: {
-    borderRadius: 8,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: colors.borderStrong,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.surfaceMuted,
   },
   actionText: {
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   deleteBtn: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#fca5a5',
+    backgroundColor: colors.dangerBg,
+    borderColor: colors.dangerBorder,
   },
   deleteText: {
-    color: '#991b1b',
+    color: colors.danger,
   },
   emptyText: {
-    color: '#6b7280',
+    color: colors.textMuted,
     textAlign: 'center',
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
 });
+

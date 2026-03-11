@@ -2,7 +2,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ORDER_STATUSES, OrderStatus } from '@/types/domain';
+import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 const CLIENT_TIMELINE_STATUSES = ORDER_STATUSES.filter(
   (status) => status !== 'PENDIENTE' && status !== 'CANCELADO',
@@ -28,16 +30,17 @@ function statusLabel(status: OrderStatus) {
 
 function statusStyle(status: OrderStatus) {
   if (status === 'ENTREGADO') {
-    return { bg: '#ecfdf5', border: '#34d399', text: '#065f46' };
+    return { bg: colors.successBg, border: colors.successBorder, text: colors.success };
   }
   if (status === 'CANCELADO') {
-    return { bg: '#fee2e2', border: '#f87171', text: '#991b1b' };
+    return { bg: colors.dangerBg, border: colors.dangerBorder, text: colors.danger };
   }
-  return { bg: '#eff6ff', border: '#60a5fa', text: '#1e3a8a' };
+  return { bg: colors.infoBg, border: colors.infoBorder, text: colors.info };
 }
 
 export default function ClientOrderDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
   const { orders } = useOrders();
   const order = orders.find((item) => item.id === params.id);
 
@@ -55,6 +58,14 @@ export default function ClientOrderDetailScreen() {
     return (
       <View style={styles.container}>
         <Text>Pedido no encontrado.</Text>
+      </View>
+    );
+  }
+
+  if (order.clientId !== user?.id) {
+    return (
+      <View style={styles.container}>
+        <Text>No tienes permisos para ver este pedido.</Text>
       </View>
     );
   }
@@ -124,23 +135,23 @@ export default function ClientOrderDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   orderId: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   statusBadge: {
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -148,26 +159,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 12,
     gap: 6,
   },
   label: {
-    color: '#6b7280',
+    color: colors.textMuted,
     fontSize: 13,
   },
   total: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   timelineTitle: {
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: typography.body,
   },
   timelineRow: {
     flexDirection: 'row',
@@ -180,30 +191,30 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#9ca3af',
-    backgroundColor: '#ffffff',
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
   },
   timelineDotReached: {
-    backgroundColor: '#bfdbfe',
-    borderColor: '#3b82f6',
+    backgroundColor: colors.infoBorder,
+    borderColor: colors.link,
   },
   timelineDotCurrent: {
-    backgroundColor: '#2563eb',
-    borderColor: '#1d4ed8',
+    backgroundColor: colors.link,
+    borderColor: colors.info,
   },
   timelineTextBlock: {
     gap: 2,
     flex: 1,
   },
   timelineStatus: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   timelineStatusCurrent: {
-    color: '#111827',
+    color: colors.textPrimary,
   },
   timelineDate: {
-    color: '#6b7280',
+    color: colors.textMuted,
     fontSize: 12,
   },
 });

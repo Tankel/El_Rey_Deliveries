@@ -6,6 +6,7 @@ import { Order, OrderStatus } from '@/types/domain';
 import { es } from '@/i18n/es';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 type DeliveryFilter = 'ACTIVAS' | 'COMPLETADAS' | 'CANCELADAS';
 
@@ -27,12 +28,12 @@ function statusLabel(status: OrderStatus) {
 
 function statusTone(status: OrderStatus) {
   if (status === 'ENTREGADO') {
-    return { bg: '#ecfdf5', border: '#34d399', text: '#065f46' };
+    return { bg: colors.successBg, border: colors.successBorder, text: colors.success };
   }
   if (status === 'CANCELADO') {
-    return { bg: '#fee2e2', border: '#f87171', text: '#991b1b' };
+    return { bg: colors.dangerBg, border: colors.dangerBorder, text: colors.danger };
   }
-  return { bg: '#eff6ff', border: '#60a5fa', text: '#1e3a8a' };
+  return { bg: colors.infoBg, border: colors.infoBorder, text: colors.info };
 }
 
 function applyFilter(order: Order, filter: DeliveryFilter) {
@@ -123,9 +124,9 @@ export default function DriverDeliveriesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    padding: spacing.lg,
     gap: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.background,
   },
   headerRow: {
     flexDirection: 'row',
@@ -133,32 +134,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerHint: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: typography.body,
   },
   filterRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   filterChip: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 999,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
   },
   filterChipSelected: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterText: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   filterTextSelected: {
-    color: '#ffffff',
+    color: colors.primaryText,
   },
   listContent: {
     gap: 10,
@@ -166,14 +167,14 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#6b7280',
+    color: colors.textMuted,
     paddingVertical: 20,
   },
   card: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
     padding: 12,
     gap: 6,
   },
@@ -184,12 +185,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   orderId: {
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   badge: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -198,10 +199,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   address: {
-    color: '#374151',
+    color: colors.textSecondary,
   },
   meta: {
-    color: '#6b7280',
+    color: colors.textMuted,
     fontSize: 12,
   },
 });

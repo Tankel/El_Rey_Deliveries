@@ -5,6 +5,7 @@ import { useCart } from '@/context/CartContext';
 import { PaymentMethod } from '@/types/domain';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 const METHODS: PaymentMethod[] = ['TARJETA', 'EFECTIVO', 'TRANSFERENCIA'];
 
@@ -109,48 +110,48 @@ export default function PaymentSimulationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    padding: 16,
-    gap: 12,
+    backgroundColor: colors.background,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '800',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   subtitle: {
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   card: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-    backgroundColor: '#ffffff',
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
   },
   sectionTitle: {
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: typography.body,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#f3f4f6',
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   label: {
-    color: '#4b5563',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   value: {
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '800',
   },
   methodsRow: {
@@ -160,21 +161,21 @@ const styles = StyleSheet.create({
   },
   methodChip: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 999,
-    backgroundColor: '#ffffff',
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   methodChipSelected: {
-    borderColor: '#111827',
-    backgroundColor: '#111827',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   methodText: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '700',
   },
   methodTextSelected: {
-    color: '#ffffff',
+    color: colors.primaryText,
   },
 });

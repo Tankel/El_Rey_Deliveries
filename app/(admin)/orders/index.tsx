@@ -1,11 +1,14 @@
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AdminNotificationsBell } from '@/components/admin/AdminNotificationsBell';
 import { OrderStatus } from '@/types/domain';
 import { useOrders } from '@/state/OrdersContext';
+import { SearchField } from '@/ui/components/atoms/SearchField';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { useDebouncedValue } from '@/ui/hooks/useDebouncedValue';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 type OrderFilter = 'TODOS' | 'PENDIENTES' | 'ACTIVOS' | 'FINALIZADOS' | 'CANCELADOS';
 
@@ -31,12 +34,12 @@ function statusLabel(status: OrderStatus) {
 
 function statusStyle(status: OrderStatus) {
   if (status === 'ENTREGADO') {
-    return { bg: '#ecfdf5', border: '#34d399', text: '#065f46' };
+    return { bg: colors.successBg, border: colors.successBorder, text: colors.success };
   }
   if (status === 'CANCELADO') {
-    return { bg: '#fee2e2', border: '#f87171', text: '#991b1b' };
+    return { bg: colors.dangerBg, border: colors.dangerBorder, text: colors.danger };
   }
-  return { bg: '#eff6ff', border: '#60a5fa', text: '#1e3a8a' };
+  return { bg: colors.infoBg, border: colors.infoBorder, text: colors.info };
 }
 
 function applyFilter(status: OrderStatus, filter: OrderFilter) {
@@ -59,11 +62,12 @@ export default function AdminOrdersScreen() {
   const { orders, updateStatus } = useOrders();
   const { showToast } = useToast();
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query);
   const [filter, setFilter] = useState<OrderFilter>('TODOS');
   const [showFilters, setShowFilters] = useState(false);
 
   const filteredOrders = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = debouncedQuery.trim().toLowerCase();
     return [...orders]
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .filter((order) => applyFilter(order.status, filter))
@@ -77,7 +81,7 @@ export default function AdminOrdersScreen() {
           order.address.toLowerCase().includes(normalized)
         );
       });
-  }, [filter, orders, query]);
+  }, [debouncedQuery, filter, orders]);
 
   return (
     <View style={styles.container}>
@@ -86,15 +90,14 @@ export default function AdminOrdersScreen() {
         <AdminNotificationsBell />
       </View>
       <View style={styles.searchRow}>
-        <TextInput
+        <SearchField
           value={query}
           onChangeText={setQuery}
           placeholder="Buscar por folio, cliente o direccion"
-          placeholderTextColor="#6b7280"
           style={[styles.searchInput, styles.searchInputFlex]}
         />
         <Pressable style={styles.filterButton} onPress={() => setShowFilters((prev) => !prev)}>
-          <Ionicons name="options-outline" size={18} color="#0f172a" />
+          <Ionicons name="options-outline" size={18} color={colors.textPrimary} />
         </Pressable>
       </View>
 
@@ -120,6 +123,10 @@ export default function AdminOrdersScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.emptyText}>No hay pedidos para ese filtro.</Text>}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews
         renderItem={({ item }) => {
           const badge = statusStyle(item.status);
           const canCancel = item.status !== 'ENTREGADO' && item.status !== 'CANCELADO';
@@ -153,8 +160,21 @@ export default function AdminOrdersScreen() {
                   <Pressable
                     style={[styles.actionButton, styles.cancelButton]}
                     onPress={() => {
-                      const result = updateStatus(item.id, 'CANCELADO', { actorRole: 'ADMIN' });
-                      showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+                      Alert.alert(
+                        'Cancelar pedido',
+                        `Se cancelara el pedido ${item.id}. Esta accion impacta la operacion.`,
+                        [
+                          { text: 'No', style: 'cancel' },
+                          {
+                            text: 'Si, cancelar',
+                            style: 'destructive',
+                            onPress: () => {
+                              const result = updateStatus(item.id, 'CANCELADO', { actorRole: 'ADMIN' });
+                              showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+                            },
+                          },
+                        ],
+                      );
                     }}
                   >
                     <Text style={[styles.actionText, styles.cancelText]}>Cancelar</Text>
@@ -172,14 +192,14 @@ export default function AdminOrdersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   headerRow: {
     flexDirection: 'row',
@@ -192,13 +212,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: {
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#9ca3af',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#111827',
+    flex: 1,
   },
   searchInputFlex: {
     flex: 1,
@@ -207,9 +221,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -220,22 +234,22 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 999,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
   },
   filterChipSelected: {
-    borderColor: '#111827',
-    backgroundColor: '#111827',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   filterText: {
-    color: '#4b5563',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   filterTextSelected: {
-    color: '#ffffff',
+    color: colors.primaryText,
   },
   listContent: {
     gap: 10,
@@ -243,14 +257,14 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#6b7280',
+    color: colors.textMuted,
     paddingVertical: 16,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 12,
     gap: 6,
   },
@@ -262,11 +276,11 @@ const styles = StyleSheet.create({
   },
   orderId: {
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   statusBadge: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -275,12 +289,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   metaText: {
-    color: '#4b5563',
+    color: colors.textSecondary,
   },
   totalText: {
-    fontSize: 18,
+    fontSize: typography.subtitle,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   actions: {
     flexDirection: 'row',
@@ -288,22 +302,22 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   actionButton: {
-    borderRadius: 8,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: colors.borderStrong,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.surfaceMuted,
   },
   actionText: {
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   cancelButton: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#fca5a5',
+    backgroundColor: colors.dangerBg,
+    borderColor: colors.dangerBorder,
   },
   cancelText: {
-    color: '#991b1b',
+    color: colors.danger,
   },
 });

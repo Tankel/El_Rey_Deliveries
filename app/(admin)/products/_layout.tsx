@@ -1,15 +1,10 @@
 import { Stack } from 'expo-router';
 import { UnifiedHeaderBack } from '@/navigation/UnifiedHeaderBack';
+import { standardStackScreenOptions } from '@/navigation/stackOptions';
 
 export default function AdminProductsLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: '#ffffff' },
-        headerTintColor: '#111827',
-        headerTitleStyle: { color: '#111827', fontWeight: '700' },
-      }}
-    >
+    <Stack screenOptions={standardStackScreenOptions}>
       <Stack.Screen
         name="index"
         options={{

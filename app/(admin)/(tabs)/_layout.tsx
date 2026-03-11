@@ -1,18 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { colors } from '@/ui/theme/tokens';
 
 export default function AdminTabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0f172a',
-        tabBarInactiveTintColor: '#64748b',
+        tabBarActiveTintColor: colors.textPrimary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           height: 62,
           paddingTop: 6,
           paddingBottom: 8,
-          backgroundColor: '#ffffff',
+          backgroundColor: colors.background,
         },
       }}
     >

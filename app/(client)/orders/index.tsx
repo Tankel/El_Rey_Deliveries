@@ -1,9 +1,12 @@
 import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Order, OrderStatus } from '@/types/domain';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
+import { SearchField } from '@/ui/components/atoms/SearchField';
+import { useDebouncedValue } from '@/ui/hooks/useDebouncedValue';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 type OrderFilter = 'TODOS' | 'ACTIVOS' | 'FINALIZADOS';
 
@@ -40,12 +43,12 @@ function statusLabel(status: OrderStatus) {
 
 function statusStyle(status: OrderStatus) {
   if (status === 'ENTREGADO') {
-    return { bg: '#ecfdf5', border: '#34d399', text: '#065f46' };
+    return { bg: colors.successBg, border: colors.successBorder, text: colors.success };
   }
   if (status === 'CANCELADO') {
-    return { bg: '#fee2e2', border: '#f87171', text: '#991b1b' };
+    return { bg: colors.dangerBg, border: colors.dangerBorder, text: colors.danger };
   }
-  return { bg: '#eff6ff', border: '#60a5fa', text: '#1e3a8a' };
+  return { bg: colors.infoBg, border: colors.infoBorder, text: colors.info };
 }
 
 function applyFilter(orders: Order[], filter: OrderFilter) {
@@ -63,6 +66,7 @@ export default function ClientOrdersScreen() {
   const { user } = useAuth();
   const { orders } = useOrders();
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query);
   const [filter, setFilter] = useState<OrderFilter>('TODOS');
 
   const clientOrders = useMemo(
@@ -74,7 +78,7 @@ export default function ClientOrdersScreen() {
   );
 
   const filteredOrders = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = debouncedQuery.trim().toLowerCase();
     return applyFilter(clientOrders, filter).filter((order) => {
       if (!normalized) {
         return true;
@@ -85,7 +89,7 @@ export default function ClientOrdersScreen() {
         statusLabel(order.status).toLowerCase().includes(normalized)
       );
     });
-  }, [clientOrders, filter, query]);
+  }, [clientOrders, debouncedQuery, filter]);
 
   const activeCount = clientOrders.filter(
     (item) => item.status !== 'ENTREGADO' && item.status !== 'CANCELADO',
@@ -101,7 +105,7 @@ export default function ClientOrdersScreen() {
         <Text style={styles.summaryText}>Entregados: {deliveredCount}</Text>
       </View>
 
-      <TextInput
+      <SearchField
         value={query}
         onChangeText={setQuery}
         placeholder="Buscar por folio, estatus o direccion"
@@ -166,14 +170,14 @@ export default function ClientOrdersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   summary: {
     flexDirection: 'row',
@@ -181,65 +185,60 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   summaryText: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 999,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 6,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.textSecondary,
   },
   search: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    minHeight: 42,
   },
   filterRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   filterChip: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 999,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
   },
   filterChipSelected: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterText: {
     fontWeight: '600',
-    color: '#4b5563',
+    color: colors.textSecondary,
   },
   filterTextSelected: {
-    color: '#ffffff',
+    color: colors.primaryText,
   },
   listContent: {
     paddingBottom: 14,
     gap: 10,
   },
   emptyBox: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 18,
     alignItems: 'center',
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 12,
-    gap: 8,
+    gap: spacing.sm,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -249,11 +248,11 @@ const styles = StyleSheet.create({
   },
   orderId: {
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   statusBadge: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -262,11 +261,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   dateText: {
-    color: '#6b7280',
+    color: colors.textMuted,
     fontSize: 13,
   },
   addressText: {
-    color: '#374151',
+    color: colors.textSecondary,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -276,10 +275,10 @@ const styles = StyleSheet.create({
   totalText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   detailHint: {
-    color: '#1d4ed8',
+    color: colors.link,
     fontWeight: '600',
   },
 });

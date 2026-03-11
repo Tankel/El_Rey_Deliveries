@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { colors, radius, spacing } from '@/ui/theme/tokens';
 
 type Props = {
   label: string;
@@ -28,7 +29,7 @@ export function PrimaryButton({
       disabled={isDisabled}
     >
       {loading ? (
-        <ActivityIndicator size="small" color="#ffffff" />
+        <ActivityIndicator size="small" color={colors.primaryText} />
       ) : null}
       <Text style={styles.text}>{loading ? loadingLabel ?? label : label}</Text>
     </Pressable>
@@ -37,30 +38,30 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#111827',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderWidth: 1,
-    borderColor: '#111827',
+    borderColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   buttonPressed: {
-    backgroundColor: '#374151',
-    borderColor: '#9ca3af',
+    backgroundColor: colors.primaryPressed,
+    borderColor: colors.borderStrong,
     transform: [{ scale: 0.98 }],
     opacity: 0.95,
   },
   buttonDisabled: {
-    backgroundColor: '#6b7280',
-    borderColor: '#6b7280',
+    backgroundColor: colors.textMuted,
+    borderColor: colors.textMuted,
     opacity: 0.8,
   },
   text: {
-    color: '#ffffff',
+    color: colors.primaryText,
     fontWeight: '600',
     textAlign: 'center',
   },

@@ -48,29 +48,46 @@ function getLineSavings(item: CartItem): number {
   return perUnit * item.quantity;
 }
 
+function requiresPrepayment(method: PaymentMethod) {
+  return method === 'TARJETA' || method === 'TRANSFERENCIA';
+}
+
 export function CartProvider({ children }: PropsWithChildren) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const { user } = useAuth();
   const { createOrder } = useOrders();
-  const { products, updateProduct } = useCatalog();
+  const { products } = useCatalog();
+  const cartStorageKey = useMemo(
+    () => `${CART_STORAGE_KEY}.${user?.id ?? 'guest'}`,
+    [user?.id],
+  );
 
   useEffect(() => {
+    let isMounted = true;
+    setIsHydrated(false);
+
     const hydrate = async () => {
-      const storedItems = await jsonStorage.read<CartItem[]>(CART_STORAGE_KEY, []);
+      const storedItems = await jsonStorage.read<CartItem[]>(cartStorageKey, []);
+      if (!isMounted) {
+        return;
+      }
       setItems(sanitizeItems(storedItems));
       setIsHydrated(true);
     };
 
     void hydrate();
-  }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [cartStorageKey]);
 
   useEffect(() => {
     if (!isHydrated) {
       return;
     }
-    void jsonStorage.write(CART_STORAGE_KEY, items);
-  }, [isHydrated, items]);
+    void jsonStorage.write(cartStorageKey, items);
+  }, [cartStorageKey, isHydrated, items]);
 
   const value = useMemo<CartContextValue>(
     () => ({
@@ -166,6 +183,23 @@ export function CartProvider({ children }: PropsWithChildren) {
         if (!user) {
           return { ok: false, message: 'Debes iniciar sesion para confirmar el pedido.' };
         }
+        const paymentMethod = payload?.paymentMethod ?? 'EFECTIVO';
+        const paymentStatus = payload?.paymentStatus ?? 'PENDIENTE_PAGO';
+        if (paymentStatus === 'RECHAZADO') {
+          return { ok: false, message: 'No puedes confirmar con pago rechazado.' };
+        }
+        if (requiresPrepayment(paymentMethod) && paymentStatus !== 'PAGADO_SIMULADO') {
+          return {
+            ok: false,
+            message: 'Debes confirmar el pago antes de enviar el pedido.',
+          };
+        }
+
+        for (const item of items) {
+          if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+            return { ok: false, message: `Cantidad invalida para ${item.product.name}.` };
+          }
+        }
 
         for (const item of items) {
           const sourceProduct = products.find((product) => product.id === item.product.id);
@@ -182,14 +216,18 @@ export function CartProvider({ children }: PropsWithChildren) {
             };
           }
         }
+        const computedTotal = items.reduce((total, item) => total + item.product.price * item.quantity, 0);
+        if (computedTotal <= 0) {
+          return { ok: false, message: 'El total del carrito es invalido.' };
+        }
 
         const result = createOrder({
           clientId: user.id,
           clientName: user.username,
-          address: payload?.address ?? 'Direccion pendiente de confirmar',
-          total: items.reduce((total, item) => total + item.product.price * item.quantity, 0),
-          paymentMethod: payload?.paymentMethod ?? 'EFECTIVO',
-          paymentStatus: payload?.paymentStatus ?? 'PENDIENTE_PAGO',
+          address: payload?.address?.trim() || 'Direccion pendiente de confirmar',
+          total: computedTotal,
+          paymentMethod,
+          paymentStatus,
           items: items.map((item) => ({
             productId: item.product.id,
             productName: item.product.name,
@@ -203,20 +241,12 @@ export function CartProvider({ children }: PropsWithChildren) {
         });
 
         if (result.ok) {
-          items.forEach((item) => {
-            const sourceProduct = products.find((product) => product.id === item.product.id);
-            if (!sourceProduct || sourceProduct.stock === undefined) {
-              return;
-            }
-            const nextStock = Math.max(sourceProduct.stock - item.quantity, 0);
-            updateProduct(sourceProduct.id, { stock: nextStock });
-          });
           setItems([]);
         }
         return result;
       },
     }),
-    [createOrder, isHydrated, items, products, updateProduct, user],
+    [createOrder, isHydrated, items, products, user],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

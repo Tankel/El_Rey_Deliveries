@@ -1,5 +1,6 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { jsonStorage } from '@/core/storage/jsonStorage';
+import { hashPassword, isPasswordHashed } from '@/core/security/password';
 import { AdminUser, AdminUserInput, AdminUserUpdate } from '@/models/AdminUser';
 
 type ActionResult = {
@@ -10,10 +11,10 @@ type ActionResult = {
 type UsersContextValue = {
   users: AdminUser[];
   isHydrated: boolean;
-  createUser: (payload: AdminUserInput) => ActionResult;
-  updateUser: (userId: string, payload: AdminUserUpdate) => ActionResult;
+  createUser: (payload: AdminUserInput) => Promise<ActionResult>;
+  updateUser: (userId: string, payload: AdminUserUpdate) => Promise<ActionResult>;
   deleteUser: (userId: string) => ActionResult;
-  resetToDemoUsers: () => ActionResult;
+  resetToDemoUsers: () => Promise<ActionResult>;
 };
 
 const USERS_STORAGE_KEY = 'mvp.admin.users';
@@ -68,10 +69,25 @@ function slugify(text: string) {
     .replace(/[^a-z0-9-]/g, '');
 }
 
-function normalizeUser(user: AdminUser): AdminUser {
+async function normalizeUser(user: AdminUser): Promise<AdminUser> {
+  const normalizedPassword = user.password?.trim();
+  if (!normalizedPassword) {
+    return {
+      ...user,
+      password: await hashPassword(`invalid-${user.id}`),
+    };
+  }
+
+  if (isPasswordHashed(normalizedPassword)) {
+    return {
+      ...user,
+      password: normalizedPassword,
+    };
+  }
+
   return {
     ...user,
-    password: user.password?.trim() || '123456',
+    password: await hashPassword(normalizedPassword),
   };
 }
 
@@ -82,7 +98,8 @@ export function UsersProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const hydrate = async () => {
       const stored = await jsonStorage.read<AdminUser[]>(USERS_STORAGE_KEY, buildUsersSeed());
-      setUsers(stored.map((item) => normalizeUser(item)));
+      const normalizedUsers = await Promise.all(stored.map((item) => normalizeUser(item)));
+      setUsers(normalizedUsers);
       setIsHydrated(true);
     };
     void hydrate();
@@ -99,7 +116,7 @@ export function UsersProvider({ children }: PropsWithChildren) {
     () => ({
       users,
       isHydrated,
-      createUser: (payload: AdminUserInput) => {
+      createUser: async (payload: AdminUserInput) => {
         if (!payload.username.trim()) {
           return { ok: false, message: 'El username es obligatorio.' };
         }
@@ -118,18 +135,19 @@ export function UsersProvider({ children }: PropsWithChildren) {
         if (exists) {
           return { ok: false, message: 'Ese username ya existe.' };
         }
+        const passwordHash = await hashPassword(payload.password.trim());
 
         const next: AdminUser = {
           ...payload,
           id: slugify(username) || `user-${Date.now()}`,
           username,
-          password: payload.password.trim(),
+          password: passwordHash,
           createdAt: new Date().toISOString(),
         };
         setUsers((prev) => [next, ...prev]);
         return { ok: true, message: 'Usuario creado.' };
       },
-      updateUser: (userId: string, payload: AdminUserUpdate) => {
+      updateUser: async (userId: string, payload: AdminUserUpdate) => {
         const current = users.find((user) => user.id === userId);
         if (!current) {
           return { ok: false, message: 'Usuario no encontrado.' };
@@ -146,6 +164,9 @@ export function UsersProvider({ children }: PropsWithChildren) {
         if (payload.password?.trim() && payload.password.trim().length < 6) {
           return { ok: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
         }
+        const passwordHash = payload.password?.trim()
+          ? await hashPassword(payload.password.trim())
+          : current.password;
 
         setUsers((prev) =>
           prev.map((user) =>
@@ -157,7 +178,7 @@ export function UsersProvider({ children }: PropsWithChildren) {
                   fullName: payload.fullName?.trim() ?? user.fullName,
                   email: payload.email?.trim() ?? user.email,
                   phone: payload.phone?.trim() ?? user.phone,
-                  password: payload.password?.trim() || user.password,
+                  password: passwordHash,
                 }
               : user,
           ),
@@ -165,15 +186,26 @@ export function UsersProvider({ children }: PropsWithChildren) {
         return { ok: true, message: 'Usuario actualizado.' };
       },
       deleteUser: (userId: string) => {
-        const exists = users.some((user) => user.id === userId);
-        if (!exists) {
+        const target = users.find((user) => user.id === userId);
+        if (!target) {
           return { ok: false, message: 'Usuario no encontrado.' };
         }
+
+        if (target.role === 'ADMIN') {
+          const activeAdmins = users.filter(
+            (user) => user.role === 'ADMIN' && user.isActive && user.id !== userId,
+          ).length;
+          if (activeAdmins === 0) {
+            return { ok: false, message: 'No puedes eliminar al ultimo admin activo.' };
+          }
+        }
+
         setUsers((prev) => prev.filter((user) => user.id !== userId));
         return { ok: true, message: 'Usuario eliminado.' };
       },
-      resetToDemoUsers: () => {
-        setUsers(buildUsersSeed());
+      resetToDemoUsers: async () => {
+        const demoUsers = await Promise.all(buildUsersSeed().map((item) => normalizeUser(item)));
+        setUsers(demoUsers);
         return { ok: true, message: 'Usuarios demo restaurados.' };
       },
     }),

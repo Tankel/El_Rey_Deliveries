@@ -7,6 +7,7 @@ import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 const DRIVER_FLOW: Partial<Record<OrderStatus, { nextStatus: OrderStatus; label: string }>> = {
   ASIGNADO: { nextStatus: 'ACEPTADO_REPARTIDOR', label: es.driver.acceptDelivery },
@@ -73,6 +74,14 @@ export default function DriverDeliveryDetailScreen() {
     );
   }
 
+  if (!isOwner) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.warningText}>{es.driver.onlyOwnerCanUpdate}</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>
@@ -82,15 +91,9 @@ export default function DriverDeliveryDetailScreen() {
       <Text style={styles.meta}>Estado actual: {statusLabel(order.status)}</Text>
       <Text style={styles.meta}>Repartidor: {order.assignedDriverName ?? 'Sin asignar'}</Text>
 
-      {!isOwner ? (
-        <View style={styles.warningBox}>
-          <Text style={styles.warningText}>{es.driver.onlyOwnerCanUpdate}</Text>
-        </View>
-      ) : null}
-
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{es.driver.nextAction}</Text>
-        {nextAction && isOwner ? (
+        {nextAction ? (
           <>
             {nextAction.nextStatus === 'ENTREGADO' ? (
               <View style={styles.proofForm}>
@@ -99,7 +102,7 @@ export default function DriverDeliveryDetailScreen() {
                   value={deliveryNote}
                   onChangeText={setDeliveryNote}
                   placeholder={es.driver.proofNotePlaceholder}
-                  placeholderTextColor="#6b7280"
+                  placeholderTextColor={colors.textMuted}
                   style={[styles.input, styles.textArea]}
                   multiline
                 />
@@ -108,7 +111,7 @@ export default function DriverDeliveryDetailScreen() {
                   value={deliveryOtp}
                   onChangeText={setDeliveryOtp}
                   placeholder="Ej. 123456"
-                  placeholderTextColor="#6b7280"
+                  placeholderTextColor={colors.textMuted}
                   style={styles.input}
                 />
                 <Text style={styles.inputLabel}>{es.driver.proofPhotoLabel}</Text>
@@ -116,7 +119,7 @@ export default function DriverDeliveryDetailScreen() {
                   value={deliveryPhotoUri}
                   onChangeText={setDeliveryPhotoUri}
                   placeholder="https://..."
-                  placeholderTextColor="#6b7280"
+                  placeholderTextColor={colors.textMuted}
                   style={styles.input}
                   autoCapitalize="none"
                 />
@@ -188,59 +191,59 @@ export default function DriverDeliveryDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    padding: spacing.lg,
     gap: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   meta: {
-    color: '#374151',
+    color: colors.textSecondary,
   },
   warningBox: {
     borderWidth: 1,
-    borderColor: '#fca5a5',
-    backgroundColor: '#fef2f2',
-    borderRadius: 10,
+    borderColor: colors.dangerBorder,
+    backgroundColor: colors.dangerBg,
+    borderRadius: radius.md,
     padding: 10,
   },
   warningText: {
-    color: '#991b1b',
+    color: colors.danger,
     fontWeight: '600',
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 12,
-    gap: 8,
+    gap: spacing.sm,
   },
   cardTitle: {
-    color: '#111827',
+    color: colors.textPrimary,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: typography.body,
   },
   noActionText: {
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   proofForm: {
     gap: 6,
   },
   inputLabel: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '600',
     fontSize: 12,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#9ca3af',
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-    color: '#111827',
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    color: colors.textPrimary,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
@@ -259,30 +262,30 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#9ca3af',
-    backgroundColor: '#ffffff',
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
   },
   timelineDotReached: {
-    backgroundColor: '#bfdbfe',
-    borderColor: '#3b82f6',
+    backgroundColor: colors.infoBorder,
+    borderColor: colors.link,
   },
   timelineDotCurrent: {
-    backgroundColor: '#2563eb',
-    borderColor: '#1d4ed8',
+    backgroundColor: colors.link,
+    borderColor: colors.info,
   },
   timelineTextBlock: {
     gap: 2,
     flex: 1,
   },
   timelineStatus: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   timelineStatusCurrent: {
-    color: '#111827',
+    color: colors.textPrimary,
   },
   timelineDate: {
-    color: '#6b7280',
+    color: colors.textMuted,
     fontSize: 12,
   },
 });

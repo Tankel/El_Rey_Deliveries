@@ -1,10 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ORDER_STATUSES, OrderStatus } from '@/types/domain';
 import { useOrders } from '@/state/OrdersContext';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 function statusLabel(status: OrderStatus) {
   const labels: Record<OrderStatus, string> = {
@@ -22,12 +23,12 @@ function statusLabel(status: OrderStatus) {
 
 function statusStyle(status: OrderStatus) {
   if (status === 'ENTREGADO') {
-    return { bg: '#ecfdf5', border: '#34d399', text: '#065f46' };
+    return { bg: colors.successBg, border: colors.successBorder, text: colors.success };
   }
   if (status === 'CANCELADO') {
-    return { bg: '#fee2e2', border: '#f87171', text: '#991b1b' };
+    return { bg: colors.dangerBg, border: colors.dangerBorder, text: colors.danger };
   }
-  return { bg: '#eff6ff', border: '#60a5fa', text: '#1e3a8a' };
+  return { bg: colors.infoBg, border: colors.infoBorder, text: colors.info };
 }
 
 export default function AdminOrderDetailScreen() {
@@ -126,11 +127,23 @@ export default function AdminOrderDetailScreen() {
         {canCancel ? (
           <Pressable
             style={styles.cancelButton}
-            onPress={() =>
-              showActionResult('status-cancel', () =>
-                updateStatus(order.id, 'CANCELADO', { actorRole: 'ADMIN' }),
-              )
-            }
+            onPress={() => {
+              Alert.alert(
+                'Cancelar pedido',
+                'Confirmas la cancelacion de este pedido?',
+                [
+                  { text: 'No', style: 'cancel' },
+                  {
+                    text: 'Si, cancelar',
+                    style: 'destructive',
+                    onPress: () =>
+                      showActionResult('status-cancel', () =>
+                        updateStatus(order.id, 'CANCELADO', { actorRole: 'ADMIN' }),
+                      ),
+                  },
+                ],
+              );
+            }}
           >
             <Text style={styles.cancelButtonText}>Cancelar pedido</Text>
           </Pressable>
@@ -150,9 +163,21 @@ export default function AdminOrderDetailScreen() {
             {ORDER_STATUSES.map((status) => (
               <Pressable
                 key={status}
-                onPress={() =>
-                  showActionResult(`force-${status}`, () => forceStatus(order.id, status))
-                }
+                onPress={() => {
+                  Alert.alert(
+                    'Accion avanzada',
+                    `Cambiar estado manualmente a "${statusLabel(status)}"?`,
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Aplicar',
+                        style: 'destructive',
+                        onPress: () =>
+                          showActionResult(`force-${status}`, () => forceStatus(order.id, status)),
+                      },
+                    ],
+                  );
+                }}
                 style={styles.chip}
               >
                 <Text style={styles.chipText}>{statusLabel(status)}</Text>
@@ -171,23 +196,23 @@ export default function AdminOrderDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   orderId: {
-    color: '#4b5563',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   statusBadge: {
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -195,25 +220,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 12,
     gap: 8,
   },
   cardTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   label: {
-    color: '#6b7280',
+    color: colors.textMuted,
   },
   totalText: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   chipsWrap: {
     flexDirection: 'row',
@@ -222,51 +247,51 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 999,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
   },
   chipSelected: {
-    borderColor: '#111827',
-    backgroundColor: '#111827',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   chipText: {
     fontWeight: '600',
-    color: '#374151',
+    color: colors.textSecondary,
   },
   chipTextSelected: {
-    color: '#ffffff',
+    color: colors.primaryText,
   },
   helpText: {
-    color: '#6b7280',
+    color: colors.textMuted,
     fontSize: 12,
   },
   confirmButton: {
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#111827',
-    backgroundColor: '#111827',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
   confirmButtonText: {
-    color: '#ffffff',
+    color: colors.primaryText,
     fontWeight: '800',
   },
   cancelButton: {
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#fca5a5',
-    backgroundColor: '#fee2e2',
+    borderColor: colors.dangerBorder,
+    backgroundColor: colors.dangerBg,
     paddingHorizontal: 12,
     paddingVertical: 10,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#991b1b',
+    color: colors.danger,
     fontWeight: '700',
   },
   advancedToggle: {
@@ -275,7 +300,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   advancedToggleText: {
-    color: '#1d4ed8',
+    color: colors.link,
     fontWeight: '700',
   },
 });

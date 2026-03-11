@@ -1,6 +1,7 @@
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 type Invoice = {
   id: string;
@@ -53,38 +54,38 @@ export default function BillingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography.title,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   listContent: {
-    gap: 10,
-    paddingBottom: 20,
+    gap: spacing.md,
+    paddingBottom: spacing.xl,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
     padding: 12,
     gap: 6,
   },
   invoiceId: {
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   amount: {
-    fontSize: 20,
+    fontSize: typography.subtitle,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   status: {
-    color: '#4b5563',
+    color: colors.textSecondary,
   },
 });
 

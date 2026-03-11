@@ -5,6 +5,7 @@ import { useUsers } from '@/context/UsersContext';
 import { useAuth } from '@/state/AuthContext';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
+import { colors, radius, spacing } from '@/ui/theme/tokens';
 import { getHomeRouteByRole } from '@/utils/routing';
 
 export default function LoginScreen() {
@@ -13,6 +14,8 @@ export default function LoginScreen() {
   const { showToast } = useToast();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResettingUsers, setIsResettingUsers] = useState(false);
 
   if (!isHydrated) {
     return null;
@@ -33,7 +36,7 @@ export default function LoginScreen() {
         onChangeText={setUsername}
         placeholder="Usuario"
         autoCapitalize="none"
-        placeholderTextColor="#6b7280"
+        placeholderTextColor={colors.textMuted}
         style={styles.input}
       />
       <Text style={styles.label}>Contraseña</Text>
@@ -43,27 +46,36 @@ export default function LoginScreen() {
         placeholder="Contraseña"
         secureTextEntry
         autoCapitalize="none"
-        placeholderTextColor="#6b7280"
+        placeholderTextColor={colors.textMuted}
         style={styles.input}
       />
 
       <PrimaryButton
         label="Iniciar sesion"
-        onPress={() => {
-          const result = signIn({ username, password });
+        loading={isSubmitting}
+        loadingLabel="Ingresando..."
+        onPress={async () => {
+          setIsSubmitting(true);
+          const result = await signIn({ username, password });
           showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+          setIsSubmitting(false);
         }}
       />
 
       {__DEV__ ? (
         <Pressable
           style={styles.debugButton}
-          onPress={() => {
-            const result = resetToDemoUsers();
+          disabled={isResettingUsers}
+          onPress={async () => {
+            setIsResettingUsers(true);
+            const result = await resetToDemoUsers();
             showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
+            setIsResettingUsers(false);
           }}
         >
-          <Text style={styles.debugButtonText}>Debug: reset usuarios demo</Text>
+          <Text style={styles.debugButtonText}>
+            {isResettingUsers ? 'Reseteando usuarios...' : 'Debug: reset usuarios demo'}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -74,43 +86,43 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 20,
-    gap: 12,
-    backgroundColor: '#ffffff',
+    padding: spacing.xl,
+    gap: spacing.md,
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   subtitle: {
-    color: '#4b5563',
-    marginBottom: 8,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
   label: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '700',
     fontSize: 13,
   },
   input: {
-    borderColor: '#9ca3af',
     borderWidth: 1,
-    borderRadius: 10,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    color: colors.textPrimary,
     paddingHorizontal: 10,
     paddingVertical: 10,
-    backgroundColor: '#ffffff',
-    color: '#111827',
   },
   debugButton: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.surfaceMuted,
   },
   debugButtonText: {
-    color: '#374151',
+    color: colors.textSecondary,
     fontWeight: '700',
     textAlign: 'center',
   },
