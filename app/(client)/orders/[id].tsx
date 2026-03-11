@@ -1,8 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ORDER_STATUSES, OrderStatus } from '@/types/domain';
 import { buildOrderTrackingInsight, formatEtaLabel } from '@/services/insights/orderTracking';
+import { buildGoogleDirectionsUrl, buildGoogleStaticTrackingMapUrl } from '@/services/maps/trackingMap';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
 import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
@@ -73,6 +74,11 @@ export default function ClientOrderDetailScreen() {
 
   const badge = statusStyle(order.status);
   const tracking = buildOrderTrackingInsight(order, orders);
+  const trackingMapUrl =
+    order.deliveryLocation && tracking.isActive
+      ? buildGoogleStaticTrackingMapUrl(order.deliveryLocation, tracking.progressPercent)
+      : null;
+  const directionsUrl = order.deliveryLocation ? buildGoogleDirectionsUrl(order.deliveryLocation) : null;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -115,6 +121,18 @@ export default function ClientOrderDetailScreen() {
             <View style={[styles.progressFill, { width: `${tracking.progressPercent}%` }]} />
           </View>
           <Text style={styles.progressText}>{tracking.progressPercent}% de avance</Text>
+          {trackingMapUrl ? (
+            <Image source={{ uri: trackingMapUrl }} style={styles.mapPreview} resizeMode="cover" />
+          ) : (
+            <Text style={styles.progressText}>
+              Configura EXPO_PUBLIC_GOOGLE_MAPS_API_KEY para visualizar mapa de ruta en tiempo real.
+            </Text>
+          )}
+          {directionsUrl ? (
+            <Pressable style={styles.mapButton} onPress={() => Linking.openURL(directionsUrl)}>
+              <Text style={styles.mapButtonText}>Abrir ruta en Google Maps</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -211,6 +229,27 @@ const styles = StyleSheet.create({
   progressText: {
     color: colors.textMuted,
     fontSize: 12,
+  },
+  mapPreview: {
+    width: '100%',
+    height: 170,
+    borderRadius: radius.md,
+    marginTop: 6,
+    backgroundColor: colors.surfaceMuted,
+  },
+  mapButton: {
+    marginTop: 6,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceMuted,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapButtonText: {
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
   timelineTitle: {
     color: colors.textPrimary,

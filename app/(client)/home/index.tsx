@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -36,6 +37,7 @@ export default function ClientHomeScreen() {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebouncedValue(query);
   const [selectedCategory, setSelectedCategory] = useState<'Todos' | string>('Todos');
+  const [showCategoryFilters, setShowCategoryFilters] = useState(false);
   const isLoading = !isCatalogHydrated;
   const productsById = useMemo(() => new Map(products.map((item) => [item.id, item])), [products]);
 
@@ -113,92 +115,117 @@ export default function ClientHomeScreen() {
     [handleAddProduct],
   );
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{es.client.title}</Text>
-        <Text style={styles.greeting}>
-          {es.client.greeting}, {user?.username}
-        </Text>
-        <View style={styles.headerActions}>
-          <Link href="/(client)/cart" style={styles.link}>
-            {es.client.cart}: {isHydrated ? itemCount : 0}
-          </Link>
-          <Link href="/(client)/orders" style={styles.link}>
-            {es.client.goToOrders}
-          </Link>
-        </View>
-      </View>
-
-      <SearchField
-        value={query}
-        onChangeText={setQuery}
-        placeholder={es.client.searchPlaceholder}
-        style={styles.searchInput}
-      />
-
-      <ScrollView
-        style={styles.categoryScroll}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryRow}
-      >
-        {categories.map((category) => {
-          const isSelected = category === selectedCategory;
-          return (
-            <Pressable
-              key={category}
-              onPress={() => setSelectedCategory(category)}
-              style={[appStyles.chip, styles.categoryChip, isSelected && appStyles.chipSelected]}
-            >
-              <Text style={[appStyles.chipText, styles.categoryText, isSelected && appStyles.chipTextSelected]}>
-                {category}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      {reorderSuggestions.length > 0 ? (
-        <View style={styles.reorderSection}>
-          <View style={styles.reorderHeader}>
-            <Text style={styles.reorderTitle}>Recompra sugerida</Text>
-            <Text style={styles.reorderHint}>Basado en tus ultimos pedidos</Text>
+  const listHeader = useMemo(
+    () => (
+      <View style={styles.headerContent}>
+        <View style={styles.header}>
+          <Text style={styles.title}>{es.client.title}</Text>
+          <Text style={styles.greeting}>
+            {es.client.greeting}, {user?.username}
+          </Text>
+          <View style={styles.headerActions}>
+            <Link href="/(client)/cart" style={styles.link}>
+              {es.client.cart}: {isHydrated ? itemCount : 0}
+            </Link>
+            <Link href="/(client)/orders" style={styles.link}>
+              {es.client.goToOrders}
+            </Link>
           </View>
+        </View>
+
+        <View style={styles.searchRow}>
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            placeholder={es.client.searchPlaceholder}
+            style={[styles.searchInput, styles.searchInputFlex]}
+          />
+          <Pressable style={styles.filterButton} onPress={() => setShowCategoryFilters((prev) => !prev)}>
+            <Ionicons name="options-outline" size={18} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+
+        {showCategoryFilters ? (
           <ScrollView
+            style={styles.categoryScroll}
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.reorderRow}
+            contentContainerStyle={styles.categoryRow}
           >
-            {reorderSuggestions.map((suggestion) => (
-              <Pressable
-                key={suggestion.productId}
-                style={styles.reorderCard}
-                onPress={() => router.push(`/(client)/home/products/${suggestion.productId}`)}
-              >
-                <Image source={{ uri: suggestion.image }} style={styles.reorderImage} resizeMode="cover" />
-                <Text style={styles.reorderCardTitle} numberOfLines={2}>
-                  {suggestion.productName}
-                </Text>
-                <Text style={styles.reorderCardMeta}>
-                  {suggestion.reason} · {suggestion.confidence}%
-                </Text>
-                <Text style={styles.reorderCardMeta}>Sugerido: {suggestion.suggestedQuantity}</Text>
+            {categories.map((category) => {
+              const isSelected = category === selectedCategory;
+              return (
                 <Pressable
-                  style={styles.reorderAddButton}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    handleQuickReorder(suggestion.productId, suggestion.suggestedQuantity);
-                  }}
+                  key={category}
+                  onPress={() => setSelectedCategory(category)}
+                  style={[appStyles.chip, styles.categoryChip, isSelected && appStyles.chipSelected]}
                 >
-                  <Text style={styles.reorderAddButtonText}>Reagregar</Text>
+                  <Text style={[appStyles.chipText, styles.categoryText, isSelected && appStyles.chipTextSelected]}>
+                    {category}
+                  </Text>
                 </Pressable>
-              </Pressable>
-            ))}
+              );
+            })}
           </ScrollView>
-        </View>
-      ) : null}
+        ) : null}
 
+        {reorderSuggestions.length > 0 ? (
+          <View style={styles.reorderSection}>
+            <View style={styles.reorderHeader}>
+              <Text style={styles.reorderTitle}>Volver a comprar</Text>
+              <Text style={styles.reorderHint}>Basado en tus ultimos pedidos</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.reorderRow}
+            >
+              {reorderSuggestions.map((suggestion) => (
+                <Pressable
+                  key={suggestion.productId}
+                  style={styles.reorderCard}
+                  onPress={() => router.push(`/(client)/home/products/${suggestion.productId}`)}
+                >
+                  <Image source={{ uri: suggestion.image }} style={styles.reorderImage} resizeMode="cover" />
+                  <Text style={styles.reorderCardTitle} numberOfLines={2}>
+                    {suggestion.productName}
+                  </Text>
+                  <Text style={styles.reorderCardMeta}>
+                    {suggestion.reason} - {suggestion.confidence}%
+                  </Text>
+                  <Text style={styles.reorderCardMeta}>Sugerido: {suggestion.suggestedQuantity}</Text>
+                  <Pressable
+                    style={styles.reorderAddButton}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      handleQuickReorder(suggestion.productId, suggestion.suggestedQuantity);
+                    }}
+                  >
+                    <Text style={styles.reorderAddButtonText}>Reagregar</Text>
+                  </Pressable>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
+    ),
+    [
+      categories,
+      handleQuickReorder,
+      isHydrated,
+      itemCount,
+      query,
+      reorderSuggestions,
+      router,
+      selectedCategory,
+      showCategoryFilters,
+      user?.username,
+    ],
+  );
+
+  return (
+    <View style={styles.container}>
       {isLoading ? (
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" color={colors.textPrimary} />
@@ -209,6 +236,7 @@ export default function ClientHomeScreen() {
           data={filteredProducts}
           keyExtractor={(item) => item.id}
           renderItem={renderProduct}
+          ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <View style={styles.centerBox}>
               <Text style={appStyles.emptyText}>{es.client.emptyProducts}</Text>
@@ -220,7 +248,6 @@ export default function ClientHomeScreen() {
           removeClippedSubviews
         />
       )}
-
     </View>
   );
 }
@@ -230,7 +257,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     padding: spacing.lg,
+  },
+  headerContent: {
     gap: spacing.md,
+    paddingBottom: spacing.sm,
   },
   header: {
     gap: 6,
@@ -251,8 +281,26 @@ const styles = StyleSheet.create({
     color: colors.link,
     fontWeight: '700',
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   searchInput: {
     minHeight: 42,
+  },
+  searchInputFlex: {
+    flex: 1,
+  },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   categoryRow: {
     gap: spacing.sm,
@@ -341,4 +389,3 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
   },
 });
-

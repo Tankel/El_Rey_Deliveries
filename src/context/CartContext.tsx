@@ -14,7 +14,7 @@ import { requiresPrepayment } from '@/domain/rules/orderRules';
 import { Product } from '@/models/Product';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
-import { PaymentMethod, PaymentStatus } from '@/types/domain';
+import { DeliveryLocation, PaymentMethod, PaymentStatus } from '@/types/domain';
 
 type CartItem = {
   product: Product;
@@ -28,6 +28,7 @@ type ActionResult = {
 
 type ConfirmOrderPayload = {
   address?: string;
+  deliveryLocation?: DeliveryLocation;
   notes?: string;
   paymentMethod?: PaymentMethod;
   paymentStatus?: PaymentStatus;
@@ -232,6 +233,14 @@ export function CartProvider({ children }: PropsWithChildren) {
     if (!currentUser) {
       return { ok: false, message: 'Debes iniciar sesion para confirmar el pedido.' };
     }
+    const normalizedAddress = payload?.address?.trim();
+    if (!normalizedAddress) {
+      return { ok: false, message: 'Debes confirmar el domicilio de entrega antes de pagar.' };
+    }
+
+    if (!payload?.deliveryLocation) {
+      return { ok: false, message: 'Domicilio no validado. Vuelve a confirmar la direccion.' };
+    }
     const paymentMethod = payload?.paymentMethod ?? 'EFECTIVO';
     const paymentStatus = payload?.paymentStatus ?? 'PENDIENTE_PAGO';
     if (paymentStatus === 'RECHAZADO') {
@@ -273,7 +282,8 @@ export function CartProvider({ children }: PropsWithChildren) {
     const result = createOrderRef.current({
       clientId: currentUser.id,
       clientName: currentUser.username,
-      address: payload?.address?.trim() || 'Direccion pendiente de confirmar',
+      address: normalizedAddress,
+      deliveryLocation: payload.deliveryLocation,
       total: computedTotal,
       paymentMethod,
       paymentStatus,

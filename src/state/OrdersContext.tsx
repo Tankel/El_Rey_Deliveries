@@ -11,6 +11,7 @@ import { buildReleaseStockPlan, buildReserveStockPlan, StockPlanEntry } from '@/
 import { es } from '@/i18n/es';
 import {
   DeliveryProof,
+  DeliveryLocation,
   DeliveryRecipientRelation,
   DriverProfile,
   Order,
@@ -26,6 +27,7 @@ type CreateOrderPayload = {
   clientId: string;
   clientName: string;
   address: string;
+  deliveryLocation?: DeliveryLocation;
   total: number;
   notes?: string;
   items?: OrderItem[];
@@ -371,6 +373,7 @@ export function OrdersProvider({ children }: PropsWithChildren) {
           clientId: payload.clientId,
           clientName: payload.clientName,
           address: normalizedAddress,
+          deliveryLocation: payload.deliveryLocation,
           total: payload.total,
           notes: payload.notes,
           items,

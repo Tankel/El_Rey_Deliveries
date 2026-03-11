@@ -7,7 +7,13 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite acceder a tus fotos para cargar imagenes de productos y evidencias de entrega."
+        }
+      ]
     ]
   }
 }

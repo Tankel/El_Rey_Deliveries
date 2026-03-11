@@ -2,6 +2,16 @@ export type UserRole = 'CLIENT' | 'ADMIN' | 'DRIVER';
 export type PaymentMethod = 'TARJETA' | 'EFECTIVO' | 'TRANSFERENCIA';
 export type PaymentStatus = 'PENDIENTE_PAGO' | 'PAGADO_SIMULADO' | 'RECHAZADO';
 export type DeliveryRecipientRelation = 'CLIENTE' | 'ENCARGADO' | 'FAMILIAR' | 'PORTERIA' | 'OTRO';
+export type AddressValidationProvider = 'GOOGLE' | 'MANUAL';
+
+export type DeliveryLocation = {
+  formattedAddress: string;
+  placeId?: string;
+  lat: number;
+  lng: number;
+  validatedBy: AddressValidationProvider;
+  validatedAt: string;
+};
 
 export const ORDER_STATUSES = [
   'PENDIENTE',
@@ -59,6 +69,7 @@ export type Order = {
   assignedDriverName?: string;
   statusHistory?: OrderStatusHistoryEntry[];
   deliveryProof?: DeliveryProof;
+  deliveryLocation?: DeliveryLocation;
   stockReservedAt?: string;
   stockReleasedAt?: string;
   createdAt: string;

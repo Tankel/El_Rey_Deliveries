@@ -71,6 +71,15 @@ export default function ClientLayout() {
               headerBackButtonDisplayMode: 'default',
             }}
           />
+          <Tabs.Screen
+            name="checkout-address"
+            options={{
+              href: null,
+              title: 'Confirmar domicilio',
+              headerShown: true,
+              headerBackButtonDisplayMode: 'default',
+            }}
+          />
         </Tabs>
       </SafeAreaView>
     </RoleGate>

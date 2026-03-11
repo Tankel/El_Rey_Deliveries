@@ -65,7 +65,7 @@ export default function CartScreen() {
       showToast({ message: 'No puedes confirmar un pedido vacio.', type: 'error' });
       return;
     }
-    router.push('/(client)/payment');
+    router.push('/(client)/checkout-address');
   };
 
   const handleClearCart = () => {

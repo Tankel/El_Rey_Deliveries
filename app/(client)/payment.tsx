@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useCart } from '@/context/CartContext';
@@ -15,10 +15,24 @@ function formatCurrency(value: number) {
 
 export default function PaymentSimulationScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    address?: string;
+    lat?: string;
+    lng?: string;
+    validatedBy?: 'GOOGLE' | 'MANUAL';
+    placeId?: string;
+  }>();
   const { items, subtotal, totalSavings, confirmOrder } = useCart();
   const { showToast } = useToast();
   const [method, setMethod] = useState<PaymentMethod>('TARJETA');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const address = typeof params.address === 'string' ? params.address : '';
+  const lat = Number(typeof params.lat === 'string' ? params.lat : Number.NaN);
+  const lng = Number(typeof params.lng === 'string' ? params.lng : Number.NaN);
+  const validatedBy = params.validatedBy === 'GOOGLE' ? 'GOOGLE' : 'MANUAL';
+  const placeId = typeof params.placeId === 'string' ? params.placeId : '';
+  const hasDeliveryLocation = address.trim().length > 0 && Number.isFinite(lat) && Number.isFinite(lng);
 
   const productsCount = useMemo(
     () => items.reduce((acc, item) => acc + item.quantity, 0),
@@ -29,6 +43,11 @@ export default function PaymentSimulationScreen() {
     if (items.length === 0) {
       showToast({ message: 'No hay productos en el carrito.', type: 'error' });
       router.back();
+      return;
+    }
+    if (!hasDeliveryLocation) {
+      showToast({ message: 'Primero confirma un domicilio valido.', type: 'error' });
+      router.replace('/(client)/checkout-address');
       return;
     }
 
@@ -42,6 +61,15 @@ export default function PaymentSimulationScreen() {
           onPress: async () => {
             setIsSubmitting(true);
             const result = confirmOrder({
+              address,
+              deliveryLocation: {
+                formattedAddress: address,
+                lat,
+                lng,
+                placeId: placeId || undefined,
+                validatedBy,
+                validatedAt: new Date().toISOString(),
+              },
               notes: `Pago simulado confirmado (${method}).`,
               paymentMethod: method,
               paymentStatus: 'PAGADO_SIMULADO',
@@ -77,6 +105,12 @@ export default function PaymentSimulationScreen() {
           <Text style={styles.label}>Ahorro</Text>
           <Text style={styles.value}>{formatCurrency(totalSavings)}</Text>
         </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Domicilio</Text>
+          <Text style={[styles.value, styles.addressValue]} numberOfLines={2}>
+            {hasDeliveryLocation ? address : 'No validado'}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -101,6 +135,7 @@ export default function PaymentSimulationScreen() {
         label="Pagar y confirmar pedido"
         loading={isSubmitting}
         loadingLabel="Confirmando..."
+        disabled={!hasDeliveryLocation}
         onPress={submitPayment}
       />
     </View>
@@ -153,6 +188,12 @@ const styles = StyleSheet.create({
   value: {
     color: colors.textPrimary,
     fontWeight: '800',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  addressValue: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   methodsRow: {
     flexDirection: 'row',
