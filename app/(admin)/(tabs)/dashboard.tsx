@@ -1,10 +1,14 @@
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AdminNotificationsBell } from '@/components/admin/AdminNotificationsBell';
 import { useCatalog } from '@/context/CatalogContext';
 import { useUsers } from '@/context/UsersContext';
 import { exportAdminPdfReport } from '@/services/export/adminPdfReport';
 import { exportAdminWorkbook } from '@/services/export/adminWorkbook';
+import { buildOrderTrackingInsight, formatEtaLabel } from '@/services/insights/orderTracking';
+import { buildStockBreakdownAlerts } from '@/services/insights/stockBreakdownAlerts';
+import { buildStockAlerts, StockAlertSeverity } from '@/services/insights/stockAlerts';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
 import { useToast } from '@/ui/feedback/ToastContext';
@@ -33,6 +37,49 @@ function MetricCard({ value, label, accent }: MetricCardProps) {
   );
 }
 
+function getSeverityLabel(severity: StockAlertSeverity) {
+  if (severity === 'OUT') return 'Sin stock';
+  if (severity === 'CRITICAL') return 'Critico';
+  if (severity === 'WARNING') return 'Riesgo alto';
+  return 'Monitorear';
+}
+
+function getSeverityStyles(severity: StockAlertSeverity) {
+  if (severity === 'OUT') {
+    return {
+      backgroundColor: colors.dangerBg,
+      borderColor: colors.dangerBorder,
+      textColor: colors.danger,
+    };
+  }
+  if (severity === 'CRITICAL') {
+    return {
+      backgroundColor: colors.warningBg,
+      borderColor: colors.warningBorder,
+      textColor: colors.warning,
+    };
+  }
+  if (severity === 'WARNING') {
+    return {
+      backgroundColor: colors.infoBg,
+      borderColor: colors.infoBorder,
+      textColor: colors.info,
+    };
+  }
+  return {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.borderStrong,
+    textColor: colors.textSecondary,
+  };
+}
+
+function formatDaysToStockout(daysToStockout: number | null) {
+  if (daysToStockout === null) {
+    return 'Sin demanda reciente';
+  }
+  return `${daysToStockout.toFixed(1)} dias`;
+}
+
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const { orders } = useOrders();
@@ -53,6 +100,32 @@ export default function AdminDashboardScreen() {
   const failedLogins = auditLog.filter((item) => item.action === 'LOGIN_FAILED').length;
   const paidOrders = orders.filter((order) => order.paymentStatus === 'PAGADO_SIMULADO').length;
   const pendingPayments = orders.filter((order) => order.paymentStatus === 'PENDIENTE_PAGO').length;
+  const stockAlerts = useMemo(
+    () => buildStockAlerts({ products, orders, lookbackDays: 21, lowStockThreshold: 6 }),
+    [orders, products],
+  );
+  const stockBreakdownAlerts = useMemo(
+    () => buildStockBreakdownAlerts({ products, orders, lookbackDays: 21 }),
+    [orders, products],
+  );
+  const activeTracking = useMemo(
+    () =>
+      orders
+        .filter((order) => order.status !== 'ENTREGADO' && order.status !== 'CANCELADO')
+        .map((order) => ({
+          order,
+          tracking: buildOrderTrackingInsight(order, orders),
+        }))
+        .sort((a, b) => (a.tracking.etaMinutes ?? Number.POSITIVE_INFINITY) - (b.tracking.etaMinutes ?? Number.POSITIVE_INFINITY))
+        .slice(0, 5),
+    [orders],
+  );
+  const criticalStockAlerts = stockAlerts.filter(
+    (item) => item.severity === 'OUT' || item.severity === 'CRITICAL',
+  ).length;
+  const criticalBreakdownAlerts = stockBreakdownAlerts.filter(
+    (item) => item.severity === 'OUT' || item.severity === 'CRITICAL',
+  ).length;
 
   const kpis = [
     { indicador: 'Pedidos pendientes', valor: pending },
@@ -65,6 +138,8 @@ export default function AdminDashboardScreen() {
     { indicador: 'Intentos fallidos login', valor: failedLogins },
     { indicador: 'Pagos confirmados', valor: paidOrders },
     { indicador: 'Pagos pendientes', valor: pendingPayments },
+    { indicador: 'Alertas stock criticas', valor: criticalStockAlerts },
+    { indicador: 'Quiebres categoria/proveedor', valor: criticalBreakdownAlerts },
   ];
 
   const exportXlsx = async () => {
@@ -128,6 +203,114 @@ export default function AdminDashboardScreen() {
           <Text style={styles.summaryLabel}>Pagos pendientes</Text>
           <Text style={styles.summaryValue}>{pendingPayments}</Text>
         </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Alertas de stock</Text>
+          <Text style={styles.summaryValue}>{stockAlerts.length}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Alertas por categoria/proveedor</Text>
+          <Text style={styles.summaryValue}>{stockBreakdownAlerts.length}</Text>
+        </View>
+      </View>
+
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Rastreo activo (ETA)</Text>
+        {activeTracking.map(({ order, tracking }) => (
+          <View key={order.id} style={styles.alertItem}>
+            <View style={styles.alertHeader}>
+              <Text style={styles.alertName}>{order.id}</Text>
+              <Text style={styles.alertEta}>ETA {formatEtaLabel(tracking.etaMinutes)}</Text>
+            </View>
+            <Text style={styles.alertMeta}>
+              Cliente: {order.clientName} | Estado: {order.status}
+            </Text>
+            <Text style={styles.alertMeta}>
+              Siguiente hito: {tracking.nextMilestone ?? 'Sin hito'} | Progreso: {tracking.progressPercent}%
+            </Text>
+          </View>
+        ))}
+        {activeTracking.length === 0 ? (
+          <Text style={styles.emptyText}>No hay pedidos activos para rastrear.</Text>
+        ) : null}
+      </View>
+
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Alertas predictivas de stock</Text>
+          <Pressable style={styles.inlineLinkButton} onPress={() => router.push('/(admin)/products')}>
+            <Text style={styles.inlineLinkText}>Ver productos</Text>
+          </Pressable>
+        </View>
+        {stockAlerts.slice(0, 6).map((alert) => {
+          const tone = getSeverityStyles(alert.severity);
+          return (
+            <View key={alert.productId} style={styles.alertItem}>
+              <View style={styles.alertHeader}>
+                <Text style={styles.alertName}>{alert.productName}</Text>
+                <View
+                  style={[
+                    styles.alertBadge,
+                    {
+                      backgroundColor: tone.backgroundColor,
+                      borderColor: tone.borderColor,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.alertBadgeText, { color: tone.textColor }]}>
+                    {getSeverityLabel(alert.severity)}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.alertMeta}>
+                Stock actual: {alert.currentStock} | Cobertura: {formatDaysToStockout(alert.daysToStockout)}
+              </Text>
+              <Text style={styles.alertMeta}>
+                Demanda diaria: {alert.averageDailyDemand} | Reabasto sugerido: +{alert.recommendedRestock}
+              </Text>
+            </View>
+          );
+        })}
+        {stockAlerts.length === 0 ? (
+          <Text style={styles.emptyText}>Sin alertas por ahora. El stock esta estable.</Text>
+        ) : null}
+      </View>
+
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Quiebres por categoria y proveedor</Text>
+        {stockBreakdownAlerts.slice(0, 6).map((alert) => {
+          const tone = getSeverityStyles(alert.severity);
+          return (
+            <View key={alert.id} style={styles.alertItem}>
+              <View style={styles.alertHeader}>
+                <Text style={styles.alertName}>
+                  {alert.dimension === 'CATEGORY' ? 'Categoria' : 'Proveedor'}: {alert.key}
+                </Text>
+                <View
+                  style={[
+                    styles.alertBadge,
+                    {
+                      backgroundColor: tone.backgroundColor,
+                      borderColor: tone.borderColor,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.alertBadgeText, { color: tone.textColor }]}>
+                    {getSeverityLabel(alert.severity)}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.alertMeta}>
+                Productos: {alert.productCount} | Stock total: {alert.totalStock}
+              </Text>
+              <Text style={styles.alertMeta}>
+                Cobertura: {formatDaysToStockout(alert.daysToStockout)} | Reabasto sugerido: +{alert.recommendedRestock}
+              </Text>
+            </View>
+          );
+        })}
+        {stockBreakdownAlerts.length === 0 ? (
+          <Text style={styles.emptyText}>Sin riesgo de quiebre por categoria/proveedor.</Text>
+        ) : null}
       </View>
 
       <View style={styles.sectionCard}>
@@ -248,6 +431,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.textPrimary,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  inlineLinkButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceMuted,
+  },
+  inlineLinkText: {
+    color: colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -266,6 +468,46 @@ const styles = StyleSheet.create({
   summaryValue: {
     color: colors.textPrimary,
     fontWeight: '800',
+  },
+  alertItem: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    backgroundColor: colors.surfaceMuted,
+    gap: 4,
+  },
+  alertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  alertName: {
+    color: colors.textPrimary,
+    fontWeight: '800',
+    flex: 1,
+  },
+  alertBadge: {
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  alertBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  alertMeta: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  alertEta: {
+    color: colors.textPrimary,
+    fontWeight: '800',
+    fontSize: 12,
   },
   navButton: {
     borderWidth: 1,

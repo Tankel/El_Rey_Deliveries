@@ -11,6 +11,7 @@ import { buildReleaseStockPlan, buildReserveStockPlan, StockPlanEntry } from '@/
 import { es } from '@/i18n/es';
 import {
   DeliveryProof,
+  DeliveryRecipientRelation,
   DriverProfile,
   Order,
   OrderItem,
@@ -41,6 +42,9 @@ type UpdateStatusOptions = {
   actorId?: string;
   actorRole?: UserRole;
   deliveryNote?: string;
+  deliveryRecipientName?: string;
+  deliveryRecipientRelation?: DeliveryRecipientRelation;
+  deliveryRecipientId?: string;
   deliveryOtp?: string;
   deliveryPhotoUri?: string;
 };
@@ -152,6 +156,18 @@ function normalizeOrder(order: Order): Order {
       order.stockReservedAt ??
       (order.status !== 'CANCELADO' && order.items?.length ? createdAt : undefined),
     stockReleasedAt: order.stockReleasedAt,
+    deliveryProof: order.deliveryProof
+      ? {
+          note: order.deliveryProof.note ?? '',
+          recipientName: order.deliveryProof.recipientName ?? 'No capturado',
+          recipientRelation: order.deliveryProof.recipientRelation ?? 'OTRO',
+          recipientId: order.deliveryProof.recipientId,
+          otp: order.deliveryProof.otp,
+          photoUri: order.deliveryProof.photoUri,
+          capturedAt: order.deliveryProof.capturedAt ?? updatedAt,
+          capturedByUserId: order.deliveryProof.capturedByUserId,
+        }
+      : undefined,
   };
 }
 
@@ -224,9 +240,18 @@ function buildDeliveryProof(
   options?: UpdateStatusOptions,
 ): DeliveryProof | null {
   const note = options?.deliveryNote?.trim();
+  const recipientName = options?.deliveryRecipientName?.trim();
+  const recipientRelation = options?.deliveryRecipientRelation;
+  const recipientId = options?.deliveryRecipientId?.trim();
   const otp = options?.deliveryOtp?.trim();
   const photoUri = options?.deliveryPhotoUri?.trim();
-  if (!note) {
+  if (!note || note.length < 8) {
+    return null;
+  }
+  if (!recipientName || recipientName.length < 3) {
+    return null;
+  }
+  if (!recipientRelation) {
     return null;
   }
   if (!otp && !photoUri) {
@@ -235,6 +260,9 @@ function buildDeliveryProof(
 
   return {
     note,
+    recipientName,
+    recipientRelation,
+    recipientId,
     otp,
     photoUri,
     capturedAt: timestamp,
@@ -524,7 +552,7 @@ export function OrdersProvider({ children }: PropsWithChildren) {
         if (nextStatus === 'ENTREGADO' && !deliveryProof) {
           return {
             ok: false,
-            message: 'Para marcar ENTREGADO agrega una nota y una foto o un OTP.',
+            message: 'Entrega invalida: nota (min 8), receptor y foto u OTP son obligatorios.',
           };
         }
 

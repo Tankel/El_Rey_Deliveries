@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AdminNotificationsBell } from '@/components/admin/AdminNotificationsBell';
-import { OrderStatus } from '@/types/domain';
+import { Order, OrderStatus } from '@/types/domain';
+import { buildOrderTrackingInsight, formatEtaLabel } from '@/services/insights/orderTracking';
 import { useOrders } from '@/state/OrdersContext';
 import { SearchField } from '@/ui/components/atoms/SearchField';
 import { useToast } from '@/ui/feedback/ToastContext';
@@ -106,9 +107,9 @@ export default function AdminOrdersScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: (typeof filteredOrders)[number] }) => (
-      <AdminOrderRow item={item} onCancel={handleCancel} />
+      <AdminOrderRow item={item} allOrders={orders} onCancel={handleCancel} />
     ),
-    [handleCancel],
+    [handleCancel, orders],
   );
 
   return (
@@ -263,6 +264,11 @@ const styles = StyleSheet.create({
   metaText: {
     color: colors.textSecondary,
   },
+  etaText: {
+    color: colors.link,
+    fontWeight: '700',
+    fontSize: 12,
+  },
   totalText: {
     fontSize: typography.subtitle,
     fontWeight: '700',
@@ -296,21 +302,16 @@ const styles = StyleSheet.create({
 
 const AdminOrderRow = memo(function AdminOrderRow({
   item,
+  allOrders,
   onCancel,
 }: {
-  item: {
-    id: string;
-    status: OrderStatus;
-    clientName: string;
-    address: string;
-    paymentMethod?: string;
-    paymentStatus?: string;
-    total: number;
-  };
+  item: Order;
+  allOrders: Order[];
   onCancel: (orderId: string) => void;
 }) {
   const badge = statusStyle(item.status);
   const canCancel = item.status !== 'ENTREGADO' && item.status !== 'CANCELADO';
+  const tracking = buildOrderTrackingInsight(item, allOrders);
 
   return (
     <View style={styles.card}>
@@ -330,6 +331,7 @@ const AdminOrderRow = memo(function AdminOrderRow({
       <Text style={styles.metaText}>
         Pago: {item.paymentMethod ?? 'N/A'} - {item.paymentStatus ?? 'N/A'}
       </Text>
+      {tracking.isActive ? <Text style={styles.etaText}>ETA aprox: {formatEtaLabel(tracking.etaMinutes)}</Text> : null}
       <Text style={styles.totalText}>{formatCurrency(item.total)}</Text>
 
       <View style={styles.actions}>

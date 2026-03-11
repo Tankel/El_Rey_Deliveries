@@ -1,9 +1,10 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,15 +17,19 @@ import { useCart } from '@/context/CartContext';
 import { getCategories } from '@/data/products';
 import { es } from '@/i18n/es';
 import { Product } from '@/models/Product';
+import { buildReorderSuggestions } from '@/services/insights/reorderSuggestions';
 import { useAuth } from '@/state/AuthContext';
+import { useOrders } from '@/state/OrdersContext';
 import { SearchField } from '@/ui/components/atoms/SearchField';
 import { useToast } from '@/ui/feedback/ToastContext';
 import { useDebouncedValue } from '@/ui/hooks/useDebouncedValue';
 import { appStyles } from '@/ui/theme/appStyles';
-import { colors, spacing, typography } from '@/ui/theme/tokens';
+import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
 export default function ClientHomeScreen() {
+  const router = useRouter();
   const { user } = useAuth();
+  const { orders } = useOrders();
   const { products, isHydrated: isCatalogHydrated } = useCatalog();
   const { itemCount, isHydrated, getItemQuantity, addItem } = useCart();
   const { showToast } = useToast();
@@ -32,8 +37,21 @@ export default function ClientHomeScreen() {
   const debouncedQuery = useDebouncedValue(query);
   const [selectedCategory, setSelectedCategory] = useState<'Todos' | string>('Todos');
   const isLoading = !isCatalogHydrated;
+  const productsById = useMemo(() => new Map(products.map((item) => [item.id, item])), [products]);
 
   const categories = useMemo(() => ['Todos', ...getCategories(products)], [products]);
+  const reorderSuggestions = useMemo(() => {
+    if (!user) {
+      return [];
+    }
+    return buildReorderSuggestions({
+      products,
+      orders,
+      clientId: user.id,
+      lookbackDays: 90,
+      maxItems: 7,
+    });
+  }, [orders, products, user]);
 
   const filteredProducts = useMemo(() => {
     const normalizedQuery = debouncedQuery.trim().toLowerCase();
@@ -44,22 +62,23 @@ export default function ClientHomeScreen() {
     });
   }, [debouncedQuery, products, selectedCategory]);
 
-  const handleAddProduct = useCallback(
-    (product: Product) => {
+  const addProductWithQuantity = useCallback(
+    (product: Product, quantity: number) => {
+      const normalizedQuantity = Math.max(1, Math.round(quantity));
       const existingQuantity = getItemQuantity(product.id);
 
       const addAnother = () => {
-        const result = addItem(product, 1);
+        const result = addItem(product, normalizedQuantity);
         showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
       };
 
       if (existingQuantity > 0) {
         Alert.alert(
           'Producto ya en carrito',
-          `Ya llevas ${existingQuantity} en el carrito. Quieres agregar otro?`,
+          `Ya llevas ${existingQuantity} en el carrito. Quieres agregar ${normalizedQuantity} mas?`,
           [
             { text: 'Cancelar', style: 'cancel' },
-            { text: 'Agregar otro', onPress: addAnother },
+            { text: 'Agregar', onPress: addAnother },
           ],
         );
         return;
@@ -68,6 +87,25 @@ export default function ClientHomeScreen() {
       addAnother();
     },
     [addItem, getItemQuantity, showToast],
+  );
+
+  const handleAddProduct = useCallback(
+    (product: Product) => {
+      addProductWithQuantity(product, 1);
+    },
+    [addProductWithQuantity],
+  );
+
+  const handleQuickReorder = useCallback(
+    (productId: string, suggestedQuantity: number) => {
+      const product = productsById.get(productId);
+      if (!product) {
+        showToast({ message: 'Producto no disponible.', type: 'error' });
+        return;
+      }
+      addProductWithQuantity(product, suggestedQuantity);
+    },
+    [addProductWithQuantity, productsById, showToast],
   );
 
   const renderProduct = useCallback(
@@ -120,6 +158,46 @@ export default function ClientHomeScreen() {
           );
         })}
       </ScrollView>
+
+      {reorderSuggestions.length > 0 ? (
+        <View style={styles.reorderSection}>
+          <View style={styles.reorderHeader}>
+            <Text style={styles.reorderTitle}>Recompra sugerida</Text>
+            <Text style={styles.reorderHint}>Basado en tus ultimos pedidos</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.reorderRow}
+          >
+            {reorderSuggestions.map((suggestion) => (
+              <Pressable
+                key={suggestion.productId}
+                style={styles.reorderCard}
+                onPress={() => router.push(`/(client)/home/products/${suggestion.productId}`)}
+              >
+                <Image source={{ uri: suggestion.image }} style={styles.reorderImage} resizeMode="cover" />
+                <Text style={styles.reorderCardTitle} numberOfLines={2}>
+                  {suggestion.productName}
+                </Text>
+                <Text style={styles.reorderCardMeta}>
+                  {suggestion.reason} · {suggestion.confidence}%
+                </Text>
+                <Text style={styles.reorderCardMeta}>Sugerido: {suggestion.suggestedQuantity}</Text>
+                <Pressable
+                  style={styles.reorderAddButton}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    handleQuickReorder(suggestion.productId, suggestion.suggestedQuantity);
+                  }}
+                >
+                  <Text style={styles.reorderAddButtonText}>Reagregar</Text>
+                </Pressable>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {isLoading ? (
         <View style={styles.centerBox}>
@@ -184,6 +262,65 @@ const styles = StyleSheet.create({
   },
   categoryScroll: {
     minHeight: 52,
+  },
+  reorderSection: {
+    gap: spacing.sm,
+  },
+  reorderHeader: {
+    gap: 2,
+  },
+  reorderTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  reorderHint: {
+    color: colors.textMuted,
+    fontSize: typography.caption,
+  },
+  reorderRow: {
+    gap: spacing.sm,
+    paddingRight: spacing.sm,
+  },
+  reorderCard: {
+    width: 176,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: spacing.sm,
+    gap: 6,
+  },
+  reorderImage: {
+    width: '100%',
+    height: 92,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceMuted,
+  },
+  reorderCardTitle: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+    fontSize: typography.caption,
+    minHeight: 32,
+  },
+  reorderCardMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  reorderAddButton: {
+    marginTop: 4,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceMuted,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reorderAddButtonText: {
+    color: colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   categoryChip: {
     paddingHorizontal: 14,

@@ -2,6 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ORDER_STATUSES, OrderStatus } from '@/types/domain';
+import { buildOrderTrackingInsight, formatEtaLabel } from '@/services/insights/orderTracking';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
 import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
@@ -71,6 +72,7 @@ export default function ClientOrderDetailScreen() {
   }
 
   const badge = statusStyle(order.status);
+  const tracking = buildOrderTrackingInsight(order, orders);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -100,6 +102,21 @@ export default function ClientOrderDetailScreen() {
         <Text style={styles.label}>Actualizado</Text>
         <Text>{new Date(order.updatedAt).toLocaleString('es-MX')}</Text>
       </View>
+
+      {tracking.isActive ? (
+        <View style={styles.card}>
+          <Text style={styles.timelineTitle}>Rastreo inteligente</Text>
+          <Text style={styles.label}>ETA estimado</Text>
+          <Text style={styles.etaValue}>{formatEtaLabel(tracking.etaMinutes)}</Text>
+          <Text style={styles.label}>
+            Siguiente hito: {tracking.nextMilestone ? statusLabel(tracking.nextMilestone) : 'Sin hito'}
+          </Text>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${tracking.progressPercent}%` }]} />
+          </View>
+          <Text style={styles.progressText}>{tracking.progressPercent}% de avance</Text>
+        </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.timelineTitle}>Timeline</Text>
@@ -174,6 +191,26 @@ const styles = StyleSheet.create({
     fontSize: typography.title,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  etaValue: {
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.link,
+  },
+  progressText: {
+    color: colors.textMuted,
+    fontSize: 12,
   },
   timelineTitle: {
     color: colors.textPrimary,

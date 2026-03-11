@@ -1,7 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ORDER_STATUSES, OrderStatus } from '@/types/domain';
+import { buildOrderTrackingInsight, formatEtaLabel } from '@/services/insights/orderTracking';
 import { useOrders } from '@/state/OrdersContext';
 import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
@@ -63,6 +64,7 @@ export default function AdminOrderDetailScreen() {
   const canCancel = order.status !== 'ENTREGADO' && order.status !== 'CANCELADO';
   const isPending = order.status === 'PENDIENTE';
   const selectedDriverName = drivers.find((item) => item.id === selectedDriverId)?.name ?? null;
+  const tracking = buildOrderTrackingInsight(order, orders);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -85,6 +87,21 @@ export default function AdminOrderDetailScreen() {
         <Text style={styles.label}>Total</Text>
         <Text style={styles.totalText}>${order.total.toFixed(2)}</Text>
       </View>
+
+      {tracking.isActive ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Rastreo inteligente</Text>
+          <Text style={styles.label}>ETA estimado</Text>
+          <Text style={styles.totalText}>{formatEtaLabel(tracking.etaMinutes)}</Text>
+          <Text style={styles.helpText}>
+            Siguiente hito: {tracking.nextMilestone ? statusLabel(tracking.nextMilestone) : 'Sin hito'}
+          </Text>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${tracking.progressPercent}%` }]} />
+          </View>
+          <Text style={styles.helpText}>{tracking.progressPercent}% del flujo completado</Text>
+        </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Accion principal</Text>
@@ -190,6 +207,25 @@ export default function AdminOrderDetailScreen() {
           </Text>
         )}
       </View>
+
+      {order.deliveryProof ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Evidencia de entrega</Text>
+          <Text style={styles.label}>Receptor</Text>
+          <Text>
+            {order.deliveryProof.recipientName} ({order.deliveryProof.recipientRelation})
+          </Text>
+          <Text style={styles.label}>Nota</Text>
+          <Text>{order.deliveryProof.note}</Text>
+          <Text style={styles.label}>OTP</Text>
+          <Text>{order.deliveryProof.otp ?? 'No capturado'}</Text>
+          <Text style={styles.label}>ID receptor</Text>
+          <Text>{order.deliveryProof.recipientId ?? 'No capturado'}</Text>
+          {order.deliveryProof.photoUri ? (
+            <Image source={{ uri: order.deliveryProof.photoUri }} style={styles.photoPreview} resizeMode="cover" />
+          ) : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -267,6 +303,24 @@ const styles = StyleSheet.create({
   helpText: {
     color: colors.textMuted,
     fontSize: 12,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.link,
+  },
+  photoPreview: {
+    width: '100%',
+    height: 170,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    marginTop: 8,
   },
   confirmButton: {
     borderRadius: radius.md,

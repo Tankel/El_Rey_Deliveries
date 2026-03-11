@@ -1,6 +1,7 @@
 export type UserRole = 'CLIENT' | 'ADMIN' | 'DRIVER';
 export type PaymentMethod = 'TARJETA' | 'EFECTIVO' | 'TRANSFERENCIA';
 export type PaymentStatus = 'PENDIENTE_PAGO' | 'PAGADO_SIMULADO' | 'RECHAZADO';
+export type DeliveryRecipientRelation = 'CLIENTE' | 'ENCARGADO' | 'FAMILIAR' | 'PORTERIA' | 'OTRO';
 
 export const ORDER_STATUSES = [
   'PENDIENTE',
@@ -26,6 +27,9 @@ export type OrderStatusHistoryEntry = {
 
 export type DeliveryProof = {
   note: string;
+  recipientName: string;
+  recipientRelation: DeliveryRecipientRelation;
+  recipientId?: string;
   otp?: string;
   photoUri?: string;
   capturedAt: string;

@@ -94,7 +94,7 @@ export const es = {
     proofNoteLabel: 'Nota de entrega',
     proofNotePlaceholder: 'Ej. Cliente recibe en puerta principal',
     proofOtpLabel: 'OTP (opcional)',
-    proofPhotoLabel: 'Foto (URL opcional)',
+    proofPhotoLabel: 'Foto (opcional)',
     nextAction: 'Siguiente accion',
     noActionAvailable: 'No hay acciones disponibles para este estado.',
     timelineTitle: 'Timeline de estado',

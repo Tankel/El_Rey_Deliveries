@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { Link } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Order, OrderStatus } from '@/types/domain';
+import { buildOrderTrackingInsight, formatEtaLabel } from '@/services/insights/orderTracking';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
 import { SearchField } from '@/ui/components/atoms/SearchField';
@@ -96,7 +97,10 @@ export default function ClientOrdersScreen() {
   ).length;
   const deliveredCount = clientOrders.filter((item) => item.status === 'ENTREGADO').length;
 
-  const renderItem = useCallback(({ item }: { item: Order }) => <OrderRow item={item} />, []);
+  const renderItem = useCallback(
+    ({ item }: { item: Order }) => <OrderRow item={item} allOrders={orders} />,
+    [orders],
+  );
 
   return (
     <View style={styles.container}>
@@ -248,6 +252,11 @@ const styles = StyleSheet.create({
   addressText: {
     color: colors.textSecondary,
   },
+  etaText: {
+    color: colors.link,
+    fontWeight: '700',
+    fontSize: 12,
+  },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -264,8 +273,9 @@ const styles = StyleSheet.create({
   },
 });
 
-const OrderRow = memo(function OrderRow({ item }: { item: Order }) {
+const OrderRow = memo(function OrderRow({ item, allOrders }: { item: Order; allOrders: Order[] }) {
   const badge = statusStyle(item.status);
+  const tracking = buildOrderTrackingInsight(item, allOrders);
   return (
     <Link href={`/(client)/orders/${item.id}`} asChild>
       <Pressable style={styles.card}>
@@ -282,6 +292,9 @@ const OrderRow = memo(function OrderRow({ item }: { item: Order }) {
         </View>
         <Text style={styles.dateText}>Creado: {formatDate(item.createdAt)}</Text>
         <Text style={styles.addressText}>{item.address}</Text>
+        {tracking.isActive ? (
+          <Text style={styles.etaText}>ETA aprox: {formatEtaLabel(tracking.etaMinutes)}</Text>
+        ) : null}
         <View style={styles.cardFooter}>
           <Text style={styles.totalText}>{formatCurrency(item.total)}</Text>
           <Text style={styles.detailHint}>Ver detalle</Text>

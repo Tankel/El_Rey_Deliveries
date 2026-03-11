@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useCatalog } from '@/context/CatalogContext';
 import { Product, ProductCategory, ProductUnit } from '@/models/Product';
+import { pickAndStoreImage } from '@/services/media/localImagePicker';
 import { SearchField } from '@/ui/components/atoms/SearchField';
 import { useToast } from '@/ui/feedback/ToastContext';
 import { useDebouncedValue } from '@/ui/hooks/useDebouncedValue';
@@ -183,6 +184,18 @@ export default function AdminProductsScreen() {
     setForm(EMPTY_FORM);
   }, []);
 
+  const selectProductImage = useCallback(async () => {
+    const result = await pickAndStoreImage('products');
+    if (!result.ok) {
+      if (!result.cancelled) {
+        showToast({ message: result.message, type: 'error' });
+      }
+      return;
+    }
+    setForm((prev) => ({ ...prev, image: result.uri ?? '' }));
+    showToast({ message: 'Imagen seleccionada correctamente.', type: 'success' });
+  }, [showToast]);
+
   const save = useCallback(() => {
     const payload = {
       ...form,
@@ -350,15 +363,29 @@ export default function AdminProductsScreen() {
               style={styles.input}
             />
 
-            <Text style={styles.fieldLabel}>URL imagen</Text>
-            <TextInput
-              value={form.image}
-              onChangeText={(value) => setForm((prev) => ({ ...prev, image: value }))}
-              placeholder="https://..."
-              autoCapitalize="none"
-              placeholderTextColor={PLACEHOLDER_COLOR}
-              style={styles.input}
-            />
+            <Text style={styles.fieldLabel}>Imagen del producto</Text>
+            <View style={styles.imageBox}>
+              {form.image ? (
+                <Image source={{ uri: form.image }} style={styles.imagePreview} resizeMode="cover" />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Text style={styles.imagePlaceholderText}>Sin imagen seleccionada</Text>
+                </View>
+              )}
+              <View style={styles.imageActions}>
+                <Pressable style={styles.imagePickButton} onPress={selectProductImage}>
+                  <Text style={styles.imagePickButtonText}>Seleccionar foto</Text>
+                </Pressable>
+                {form.image ? (
+                  <Pressable
+                    style={styles.imageClearButton}
+                    onPress={() => setForm((prev) => ({ ...prev, image: '' }))}
+                  >
+                    <Text style={styles.imageClearButtonText}>Quitar</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
 
             <Text style={styles.fieldLabel}>Precio / Precio original / Stock</Text>
             <View style={styles.row}>
@@ -582,6 +609,7 @@ export default function AdminProductsScreen() {
       packagingSelectOptions,
       containerOptions,
       query,
+      selectProductImage,
       save,
       showColumnFilters,
       toggleColumn,
@@ -779,6 +807,59 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '700',
   },
+  imageBox: {
+    gap: 8,
+  },
+  imagePreview: {
+    width: '100%',
+    height: 165,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 120,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePlaceholderText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  imageActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  imagePickButton: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+  },
+  imagePickButtonText: {
+    color: colors.primaryText,
+    fontWeight: '700',
+  },
+  imageClearButton: {
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+  },
+  imageClearButtonText: {
+    color: colors.textSecondary,
+    fontWeight: '700',
+  },
   formActions: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -913,4 +994,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
