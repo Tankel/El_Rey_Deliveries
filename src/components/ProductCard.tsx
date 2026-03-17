@@ -13,19 +13,34 @@ function formatCurrency(value: number) {
   return `$${value.toFixed(2)}`;
 }
 
+function formatPackageBadge(product: Product) {
+  if (product.quantityPerPack > 1) {
+    return `${product.quantityPerPack} pzs`;
+  }
+
+  const sizeText = Number.isInteger(product.sizeValue) ? String(product.sizeValue) : product.sizeValue.toFixed(1);
+  return `${sizeText} ${product.unit}`;
+}
+
 function ProductCardComponent({ product, onAdd }: Props) {
   const router = useRouter();
   const hasStock = product.stock !== undefined;
   const stock = product.stock ?? 0;
   const outOfStock = hasStock && stock <= 0;
   const lowStock = hasStock && stock > 0 && stock <= 5;
+  const packageBadgeText = formatPackageBadge(product);
 
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
       onPress={() => router.push(`/(client)/home/products/${product.id}`)}
     >
-      <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
+      <View style={styles.imageContainer}>
+        <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
+        <View style={styles.imageBadge}>
+          <Text style={styles.imageBadgeText}>{packageBadgeText}</Text>
+        </View>
+      </View>
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={2}>
           {product.name}
@@ -74,10 +89,27 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
     opacity: 0.96,
   },
+  imageContainer: {
+    position: 'relative',
+  },
   image: {
     width: '100%',
     height: 150,
     backgroundColor: colors.surfaceMuted,
+  },
+  imageBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: 'rgba(17,24,39,0.85)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  imageBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   content: {
     padding: spacing.md,
