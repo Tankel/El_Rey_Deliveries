@@ -1,4 +1,25 @@
-import { UserRole } from '@/types/domain';
+import { AddressValidationProvider, UserRole } from '@/types/domain';
+
+export type SavedAddress = {
+  id: string;
+  label: string;
+  formattedAddress: string;
+  street: string;
+  exteriorNumber: string;
+  interiorNumber?: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  references?: string;
+  lat: number;
+  lng: number;
+  placeId?: string;
+  validatedBy: AddressValidationProvider;
+  createdAt: string;
+  updatedAt: string;
+  isDefault?: boolean;
+};
 
 export type AccountProfile = {
   userId: string;
@@ -10,6 +31,7 @@ export type AccountProfile = {
   businessName: string;
   taxId: string;
   billingAddress: string;
+  savedAddresses: SavedAddress[];
 };
 
 export type AccountProfileUpdate = Partial<
@@ -36,5 +58,6 @@ export function createDefaultAccountProfile(user: DefaultProfileInput): AccountP
     businessName: 'Negocio Demo',
     taxId: 'XAXX010101000',
     billingAddress: 'Direccion fiscal pendiente',
+    savedAddresses: [],
   };
 }
