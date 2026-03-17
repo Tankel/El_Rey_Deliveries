@@ -94,8 +94,8 @@ export default function AdminOrdersScreen() {
           {
             text: 'Si, cancelar',
             style: 'destructive',
-            onPress: () => {
-              const result = updateStatus(orderId, 'CANCELADO', { actorRole: 'ADMIN' });
+            onPress: async () => {
+              const result = await updateStatus(orderId, 'CANCELADO', { actorRole: 'ADMIN' });
               showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
             },
           },

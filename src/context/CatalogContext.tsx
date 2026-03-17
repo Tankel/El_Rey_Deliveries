@@ -1,7 +1,12 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
-import { jsonStorage } from '@/core/storage/jsonStorage';
-import { PRODUCT_SEED } from '@/data/products';
-import { Product, computeDiscountPercent } from '@/models/Product';
+﻿import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import { Product } from '@/models/Product';
+import {
+  createProduct as createProductRequest,
+  deleteProduct as deleteProductRequest,
+  listProducts,
+  updateProduct as updateProductRequest,
+} from '@/services/api/endpoints/products';
+import { useAuth } from '@/state/AuthContext';
 
 type ActionResult = {
   ok: boolean;
@@ -22,37 +27,15 @@ type CatalogContextValue = {
   containerTypeOptions: string[];
   packagingOptions: string[];
   isHydrated: boolean;
-  createProduct: (payload: ProductInput) => ActionResult;
-  updateProduct: (productId: string, payload: ProductUpdate) => ActionResult;
-  deleteProduct: (productId: string) => ActionResult;
-  addContainerTypeOption: (value: string) => ActionResult;
-  addPackagingOption: (value: string) => ActionResult;
+  refreshCatalog: () => Promise<void>;
+  createProduct: (payload: ProductInput) => Promise<ActionResult>;
+  updateProduct: (productId: string, payload: ProductUpdate) => Promise<ActionResult>;
+  deleteProduct: (productId: string) => Promise<ActionResult>;
+  addContainerTypeOption: (value: string) => Promise<ActionResult>;
+  addPackagingOption: (value: string) => Promise<ActionResult>;
 };
 
-const CATALOG_STORAGE_KEY = 'mvp.catalog.products';
-const CATALOG_CONTAINER_OPTIONS_STORAGE_KEY = 'mvp.catalog.container.options';
-const CATALOG_PACKAGING_OPTIONS_STORAGE_KEY = 'mvp.catalog.packaging.options';
 const CatalogContext = createContext<CatalogContextValue | undefined>(undefined);
-
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '');
-}
-
-function ensureProductDiscount(product: Product): Product {
-  return {
-    ...product,
-    discountPercent: computeDiscountPercent(product.price, product.originalPrice),
-    stock: typeof product.stock === 'number' ? Math.max(product.stock, 0) : 20,
-  };
-}
-
-function getSeedCopy() {
-  return PRODUCT_SEED.map((item) => ({ ...item }));
-}
 
 function normalizeOptionList(items: string[]) {
   const unique = new Set<string>();
@@ -65,65 +48,41 @@ function normalizeOptionList(items: string[]) {
   return Array.from(unique);
 }
 
-function getSeedContainerOptions() {
-  return normalizeOptionList(getSeedCopy().map((item) => item.containerType));
-}
-
-function getSeedPackagingOptions() {
-  return normalizeOptionList(getSeedCopy().map((item) => item.packaging));
-}
-
 export function CatalogProvider({ children }: PropsWithChildren) {
-  const [products, setProducts] = useState<Product[]>(getSeedCopy());
-  const [containerTypeOptions, setContainerTypeOptions] = useState<string[]>(getSeedContainerOptions());
-  const [packagingOptions, setPackagingOptions] = useState<string[]>(getSeedPackagingOptions());
+  const { isAuthenticated, user } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [containerTypeOptions, setContainerTypeOptions] = useState<string[]>([]);
+  const [packagingOptions, setPackagingOptions] = useState<string[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
 
-  useEffect(() => {
-    const hydrate = async () => {
-      const stored = await jsonStorage.read<Product[]>(CATALOG_STORAGE_KEY, getSeedCopy());
-      const storedContainerOptions = await jsonStorage.read<string[]>(
-        CATALOG_CONTAINER_OPTIONS_STORAGE_KEY,
-        getSeedContainerOptions(),
-      );
-      const storedPackagingOptions = await jsonStorage.read<string[]>(
-        CATALOG_PACKAGING_OPTIONS_STORAGE_KEY,
-        getSeedPackagingOptions(),
-      );
-
-      const nextProducts = stored.map(ensureProductDiscount);
-      setProducts(nextProducts);
-      setContainerTypeOptions(
-        normalizeOptionList([...storedContainerOptions, ...nextProducts.map((item) => item.containerType)]),
-      );
-      setPackagingOptions(
-        normalizeOptionList([...storedPackagingOptions, ...nextProducts.map((item) => item.packaging)]),
-      );
+  const refreshCatalog = async () => {
+    try {
+      const response = await listProducts();
+      setProducts(response.items);
+      setContainerTypeOptions(normalizeOptionList(response.containerTypeOptions));
+      setPackagingOptions(normalizeOptionList(response.packagingOptions));
+    } catch {
+      setProducts([]);
+      setContainerTypeOptions([]);
+      setPackagingOptions([]);
+    } finally {
       setIsHydrated(true);
-    };
-    void hydrate();
+    }
+  };
+
+  useEffect(() => {
+    void refreshCatalog();
   }, []);
 
   useEffect(() => {
-    if (!isHydrated) {
+    if (!isAuthenticated) {
+      setProducts([]);
+      setContainerTypeOptions([]);
+      setPackagingOptions([]);
       return;
     }
-    void jsonStorage.write(CATALOG_STORAGE_KEY, products);
-  }, [isHydrated, products]);
-
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-    void jsonStorage.write(CATALOG_CONTAINER_OPTIONS_STORAGE_KEY, containerTypeOptions);
-  }, [containerTypeOptions, isHydrated]);
-
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-    void jsonStorage.write(CATALOG_PACKAGING_OPTIONS_STORAGE_KEY, packagingOptions);
-  }, [isHydrated, packagingOptions]);
+    void refreshCatalog();
+  }, [isAuthenticated, user?.id]);
 
   const value = useMemo<CatalogContextValue>(
     () => ({
@@ -131,96 +90,59 @@ export function CatalogProvider({ children }: PropsWithChildren) {
       containerTypeOptions,
       packagingOptions,
       isHydrated,
-      createProduct: (payload: ProductInput) => {
-        if (!payload.name.trim()) {
-          return { ok: false, message: 'El nombre del producto es obligatorio.' };
+      refreshCatalog,
+      createProduct: async (payload) => {
+        try {
+          const response = await createProductRequest({
+            ...payload,
+            stock: payload.stock ?? 0,
+          });
+          setProducts((prev) => [response.product, ...prev]);
+          setContainerTypeOptions((prev) => normalizeOptionList([...prev, response.product.containerType]));
+          setPackagingOptions((prev) => normalizeOptionList([...prev, response.product.packaging]));
+          return { ok: response.ok, message: response.message };
+        } catch (error) {
+          return { ok: false, message: error instanceof Error ? error.message : 'No se pudo crear producto.' };
         }
-        if (payload.price <= 0) {
-          return { ok: false, message: 'El precio debe ser mayor a 0.' };
-        }
-        if (payload.originalPrice < payload.price) {
-          return { ok: false, message: 'El precio original debe ser mayor o igual al precio actual.' };
-        }
-        if ((payload.stock ?? 0) < 0) {
-          return { ok: false, message: 'El stock no puede ser negativo.' };
-        }
-
-        const baseId = payload.id?.trim() || `prod-${slugify(payload.name)}-${Date.now()}`;
-        const exists = products.some((item) => item.id === baseId);
-        const productId = exists ? `${baseId}-${Math.floor(Math.random() * 1000)}` : baseId;
-
-        const next: Product = ensureProductDiscount({
-          ...payload,
-          id: productId,
-          discountPercent: payload.discountPercent ?? 0,
-        });
-
-        setProducts((prev) => [next, ...prev]);
-        setContainerTypeOptions((prev) => normalizeOptionList([...prev, next.containerType]));
-        setPackagingOptions((prev) => normalizeOptionList([...prev, next.packaging]));
-        return { ok: true, message: 'Producto creado.' };
       },
-      updateProduct: (productId: string, payload: ProductUpdate) => {
-        const existing = products.find((item) => item.id === productId);
-        if (!existing) {
-          return { ok: false, message: 'Producto no encontrado.' };
+      updateProduct: async (productId, payload) => {
+        try {
+          const response = await updateProductRequest(productId, payload);
+          setProducts((prev) => prev.map((item) => (item.id === productId ? response.product : item)));
+          setContainerTypeOptions((prev) => normalizeOptionList([...prev, response.product.containerType]));
+          setPackagingOptions((prev) => normalizeOptionList([...prev, response.product.packaging]));
+          return { ok: response.ok, message: response.message };
+        } catch (error) {
+          return { ok: false, message: error instanceof Error ? error.message : 'No se pudo actualizar producto.' };
         }
-
-        const merged: Product = ensureProductDiscount({
-          ...existing,
-          ...payload,
-          id: existing.id,
-        });
-
-        if (!merged.name.trim()) {
-          return { ok: false, message: 'El nombre del producto es obligatorio.' };
-        }
-        if (merged.price <= 0) {
-          return { ok: false, message: 'El precio debe ser mayor a 0.' };
-        }
-        if (merged.originalPrice < merged.price) {
-          return { ok: false, message: 'El precio original debe ser mayor o igual al precio actual.' };
-        }
-        if ((merged.stock ?? 0) < 0) {
-          return { ok: false, message: 'El stock no puede ser negativo.' };
-        }
-
-        setProducts((prev) => prev.map((item) => (item.id === productId ? merged : item)));
-        setContainerTypeOptions((prev) => normalizeOptionList([...prev, merged.containerType]));
-        setPackagingOptions((prev) => normalizeOptionList([...prev, merged.packaging]));
-        return { ok: true, message: 'Producto actualizado.' };
       },
-      deleteProduct: (productId: string) => {
-        const exists = products.some((item) => item.id === productId);
-        if (!exists) {
-          return { ok: false, message: 'Producto no encontrado.' };
+      deleteProduct: async (productId) => {
+        try {
+          const response = await deleteProductRequest(productId);
+          setProducts((prev) => prev.filter((item) => item.id !== productId));
+          return { ok: response.ok, message: response.message };
+        } catch (error) {
+          return { ok: false, message: error instanceof Error ? error.message : 'No se pudo eliminar producto.' };
         }
-
-        setProducts((prev) => prev.filter((item) => item.id !== productId));
-        return { ok: true, message: 'Producto eliminado.' };
       },
-      addContainerTypeOption: (value: string) => {
+      addContainerTypeOption: async (value) => {
         const normalized = value.trim();
         if (!normalized) {
           return { ok: false, message: 'El tipo de contenedor no puede estar vacio.' };
         }
-        const exists = containerTypeOptions.some(
-          (item) => item.toLowerCase() === normalized.toLowerCase(),
-        );
+        const exists = containerTypeOptions.some((item) => item.toLowerCase() === normalized.toLowerCase());
         if (exists) {
           return { ok: false, message: 'Esa opcion ya existe.' };
         }
         setContainerTypeOptions((prev) => [...prev, normalized]);
         return { ok: true, message: 'Opcion agregada.' };
       },
-      addPackagingOption: (value: string) => {
+      addPackagingOption: async (value) => {
         const normalized = value.trim();
         if (!normalized) {
           return { ok: false, message: 'El empaque no puede estar vacio.' };
         }
-        const exists = packagingOptions.some(
-          (item) => item.toLowerCase() === normalized.toLowerCase(),
-        );
+        const exists = packagingOptions.some((item) => item.toLowerCase() === normalized.toLowerCase());
         if (exists) {
           return { ok: false, message: 'Esa opcion ya existe.' };
         }

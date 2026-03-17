@@ -43,10 +43,10 @@ export default function AdminOrderDetailScreen() {
 
   const showActionResult = async (
     key: string,
-    action: () => { ok: boolean; message: string },
+    action: () => Promise<{ ok: boolean; message: string }>,
   ) => {
     setPendingAction(key);
-    const result = action();
+    const result = await action();
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     await new Promise((resolve) => setTimeout(resolve, 220));
     setPendingAction(null);

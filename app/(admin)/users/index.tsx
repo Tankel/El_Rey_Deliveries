@@ -148,8 +148,8 @@ export default function AdminUsersScreen() {
           {
             text: 'Eliminar',
             style: 'destructive',
-            onPress: () => {
-              const result = deleteUser(user.id);
+            onPress: async () => {
+              const result = await deleteUser(user.id);
               showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
               if (editingId === user.id) {
                 closeForm();
@@ -564,4 +564,3 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
 });
-

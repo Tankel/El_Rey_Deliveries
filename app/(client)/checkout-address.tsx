@@ -170,7 +170,7 @@ export default function CheckoutAddressScreen() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const applySavedAddress = (addressId: string) => {
+  const applySavedAddress = async (addressId: string) => {
     const target = profile?.savedAddresses.find((item) => item.id === addressId);
     if (!target) {
       return;
@@ -188,7 +188,7 @@ export default function CheckoutAddressScreen() {
     setSearchQuery(target.formattedAddress);
     setSuggestions([]);
     setStatusMessage('Direccion guardada aplicada.');
-    const result = setDefaultSavedAddress(addressId);
+    const result = await setDefaultSavedAddress(addressId);
     if (!result.ok) {
       showToast({ message: result.message, type: 'error' });
     }
@@ -277,8 +277,8 @@ export default function CheckoutAddressScreen() {
           },
           {
             text: 'Guardar y continuar',
-            onPress: () => {
-              const saveResult = addSavedAddress({
+            onPress: async () => {
+              const saveResult = await addSavedAddress({
                 label: `${form.street} ${form.exteriorNumber}`.trim() || 'Direccion',
                 formattedAddress: location.formattedAddress,
                 street: form.street,
@@ -325,7 +325,7 @@ export default function CheckoutAddressScreen() {
               return (
                 <Pressable
                   key={item.id}
-                  onPress={() => applySavedAddress(item.id)}
+                  onPress={() => void applySavedAddress(item.id)}
                   style={[styles.savedChip, selected && styles.savedChipSelected]}
                 >
                   <Text style={[styles.savedChipTitle, selected && styles.savedChipTitleSelected]} numberOfLines={1}>

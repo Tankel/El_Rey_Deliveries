@@ -196,7 +196,7 @@ export default function AdminProductsScreen() {
     showToast({ message: 'Imagen seleccionada correctamente.', type: 'success' });
   }, [showToast]);
 
-  const save = useCallback(() => {
+  const save = useCallback(async () => {
     const payload = {
       ...form,
       price: parseNumber(form.price),
@@ -209,8 +209,8 @@ export default function AdminProductsScreen() {
     };
 
     const result = editingId
-      ? updateProduct(editingId, payload)
-      : createProduct({
+      ? await updateProduct(editingId, payload)
+      : await createProduct({
           ...payload,
           image: payload.image.trim() || 'https://dummyimage.com/800x600/e5e7eb/111827&text=Producto',
           containerType: payload.containerType || 'N/A',
@@ -235,8 +235,8 @@ export default function AdminProductsScreen() {
           {
             text: 'Eliminar',
             style: 'destructive',
-            onPress: () => {
-              const result = deleteProduct(product.id);
+            onPress: async () => {
+              const result = await deleteProduct(product.id);
               showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
               if (editingId === product.id) {
                 closeForm();
@@ -249,8 +249,8 @@ export default function AdminProductsScreen() {
     [closeForm, deleteProduct, editingId, showToast],
   );
 
-  const createContainerOption = useCallback(() => {
-    const result = addContainerTypeOption(newContainerType);
+  const createContainerOption = useCallback(async () => {
+    const result = await addContainerTypeOption(newContainerType);
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     if (result.ok) {
       const value = newContainerType.trim();
@@ -259,8 +259,8 @@ export default function AdminProductsScreen() {
     }
   }, [addContainerTypeOption, newContainerType, showToast]);
 
-  const createPackagingOption = useCallback(() => {
-    const result = addPackagingOption(newPackaging);
+  const createPackagingOption = useCallback(async () => {
+    const result = await addPackagingOption(newPackaging);
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     if (result.ok) {
       const value = newPackaging.trim();
@@ -279,7 +279,7 @@ export default function AdminProductsScreen() {
     setStockInput('10');
   }, []);
 
-  const applyStockIncrement = useCallback(() => {
+  const applyStockIncrement = useCallback(async () => {
     if (!stockModalProductId) {
       return;
     }
@@ -295,7 +295,7 @@ export default function AdminProductsScreen() {
       return;
     }
     const nextStock = (product.stock ?? 0) + toAdd;
-    const result = updateProduct(product.id, { stock: nextStock });
+    const result = await updateProduct(product.id, { stock: nextStock });
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     if (result.ok) {
       closeStockModal();
@@ -490,7 +490,7 @@ export default function AdminProductsScreen() {
                 placeholderTextColor={PLACEHOLDER_COLOR}
                 style={[styles.input, styles.flexInput]}
               />
-              <Pressable style={styles.addOptionBtn} onPress={createContainerOption}>
+              <Pressable style={styles.addOptionBtn} onPress={() => void createContainerOption()}>
                 <Text style={styles.addOptionText}>Agregar</Text>
               </Pressable>
             </View>
@@ -518,7 +518,7 @@ export default function AdminProductsScreen() {
                 placeholderTextColor={PLACEHOLDER_COLOR}
                 style={[styles.input, styles.flexInput]}
               />
-              <Pressable style={styles.addOptionBtn} onPress={createPackagingOption}>
+              <Pressable style={styles.addOptionBtn} onPress={() => void createPackagingOption()}>
                 <Text style={styles.addOptionText}>Agregar</Text>
               </Pressable>
             </View>
@@ -542,7 +542,7 @@ export default function AdminProductsScreen() {
             />
 
             <View style={styles.formActions}>
-              <Pressable style={styles.saveButton} onPress={save}>
+              <Pressable style={styles.saveButton} onPress={() => void save()}>
                 <Text style={styles.saveButtonText}>{editingId ? 'Guardar producto' : 'Crear producto'}</Text>
               </Pressable>
               <Pressable style={styles.cancelButton} onPress={closeForm}>
@@ -654,7 +654,7 @@ export default function AdminProductsScreen() {
               style={styles.input}
             />
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalPrimaryButton} onPress={applyStockIncrement}>
+              <Pressable style={styles.modalPrimaryButton} onPress={() => void applyStockIncrement()}>
                 <Text style={styles.modalPrimaryText}>Guardar</Text>
               </Pressable>
               <Pressable style={styles.modalSecondaryButton} onPress={closeStockModal}>

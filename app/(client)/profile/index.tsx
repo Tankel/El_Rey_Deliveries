@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+﻿import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useProfile } from '@/context/ProfileContext';
@@ -61,7 +61,7 @@ export default function ClientProfileScreen() {
 
   const saveProfile = async () => {
     setIsSaving(true);
-    const result = updateProfile(form);
+    const result = await updateProfile(form);
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     await new Promise((resolve) => setTimeout(resolve, 250));
     setIsSaving(false);
@@ -223,4 +223,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
 

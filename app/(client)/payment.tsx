@@ -60,7 +60,7 @@ export default function PaymentSimulationScreen() {
           text: 'Confirmar',
           onPress: async () => {
             setIsSubmitting(true);
-            const result = confirmOrder({
+            const result = await confirmOrder({
               address,
               deliveryLocation: {
                 formattedAddress: address,

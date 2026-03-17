@@ -10,8 +10,8 @@ import { UsersProvider } from '@/context/UsersContext';
 export function AppProviders({ children }: PropsWithChildren) {
   return (
     <ToastProvider>
-      <UsersProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <UsersProvider>
           <CatalogProvider>
             <ProfileProvider>
               <OrdersProvider>
@@ -19,8 +19,8 @@ export function AppProviders({ children }: PropsWithChildren) {
               </OrdersProvider>
             </ProfileProvider>
           </CatalogProvider>
-        </AuthProvider>
-      </UsersProvider>
+        </UsersProvider>
+      </AuthProvider>
     </ToastProvider>
   );
 }

@@ -1,9 +1,13 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
-import { toActionFailure } from '@/core/errors/actionError';
-import { verifyPassword } from '@/core/security/password';
-import { jsonStorage } from '@/core/storage/jsonStorage';
-import { useUsers } from '@/context/UsersContext';
-import { normalizeUsername, validateSignInInput } from '@/domain/rules/authRules';
+﻿import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  AuthAuditEvent,
+  getAuditLog,
+  getMe,
+  login,
+  logout,
+} from '@/services/api/endpoints/auth';
+import { clearSessionStore, loadSessionStore, saveSessionStore } from '@/state/sessionStore';
+import { setApiAuthToken } from '@/services/api/client';
 import { UserRole } from '@/types/domain';
 
 type AuthUser = {
@@ -18,17 +22,6 @@ type SignInPayload = {
   password: string;
 };
 
-type AuthAuditAction = 'LOGIN_SUCCESS' | 'LOGIN_FAILED' | 'LOGOUT';
-
-type AuthAuditEvent = {
-  id: string;
-  action: AuthAuditAction;
-  username: string;
-  role?: UserRole;
-  message: string;
-  at: string;
-};
-
 type ActionResult = {
   ok: boolean;
   message: string;
@@ -40,28 +33,11 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   isHydrated: boolean;
   signIn: (payload: SignInPayload) => Promise<ActionResult>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
+  refreshAuthState: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-const AUTH_STORAGE_KEY = 'mvp.auth.session';
-const AUTH_AUDIT_STORAGE_KEY = 'mvp.auth.audit-log';
-
-function buildAuditEvent(
-  action: AuthAuditAction,
-  username: string,
-  message: string,
-  role?: UserRole,
-): AuthAuditEvent {
-  return {
-    id: `audit-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-    action,
-    username,
-    role,
-    message,
-    at: new Date().toISOString(),
-  };
-}
 
 function toAuthUser(payload: { id: string; username: string; role: UserRole; fullName: string }): AuthUser {
   return {
@@ -73,122 +49,101 @@ function toAuthUser(payload: { id: string; username: string; role: UserRole; ful
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const { users, isHydrated: areUsersHydrated } = useUsers();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [auditLog, setAuditLog] = useState<AuthAuditEvent[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  const refreshAuditLog = async (role?: UserRole) => {
+    if (role !== 'ADMIN') {
+      setAuditLog([]);
+      return;
+    }
+    try {
+      const response = await getAuditLog();
+      setAuditLog(response.items);
+    } catch {
+      setAuditLog([]);
+    }
+  };
+
+  const refreshAuthState = async () => {
+    try {
+      const stored = await loadSessionStore();
+      if (!stored?.token) {
+        setUser(null);
+        setAuditLog([]);
+        return;
+      }
+
+      setApiAuthToken(stored.token);
+      const me = await getMe();
+      const nextUser = toAuthUser(me.user);
+      setUser(nextUser);
+      await refreshAuditLog(nextUser.role);
+    } catch {
+      setApiAuthToken(null);
+      setUser(null);
+      setAuditLog([]);
+      await clearSessionStore();
+    }
+  };
+
   useEffect(() => {
     const hydrate = async () => {
-      const [storedUser, storedAudit] = await Promise.all([
-        jsonStorage.read<AuthUser | null>(AUTH_STORAGE_KEY, null),
-        jsonStorage.read<AuthAuditEvent[]>(AUTH_AUDIT_STORAGE_KEY, []),
-      ]);
-      setUser(storedUser);
-      setAuditLog(storedAudit);
+      await refreshAuthState();
       setIsHydrated(true);
     };
 
     void hydrate();
   }, []);
 
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-    void jsonStorage.write(AUTH_STORAGE_KEY, user);
-  }, [isHydrated, user]);
-
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-    void jsonStorage.write(AUTH_AUDIT_STORAGE_KEY, auditLog);
-  }, [auditLog, isHydrated]);
-
-  useEffect(() => {
-    if (!isHydrated || !areUsersHydrated || !user) {
-      return;
-    }
-    const sourceUser = users.find((item) => item.id === user.id);
-    if (!sourceUser || !sourceUser.isActive) {
-      setAuditLog((prev) => [
-        buildAuditEvent(
-          'LOGOUT',
-          user.username,
-          'Sesion cerrada por usuario eliminado o inactivo.',
-          user.role,
-        ),
-        ...prev,
-      ]);
-      setUser(null);
-      return;
-    }
-
-    if (
-      sourceUser.username !== user.username ||
-      sourceUser.role !== user.role ||
-      sourceUser.fullName !== user.fullName
-    ) {
-      setUser(toAuthUser(sourceUser));
-    }
-  }, [areUsersHydrated, isHydrated, user, users]);
-
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       auditLog,
       isAuthenticated: Boolean(user),
-      isHydrated: isHydrated && areUsersHydrated,
+      isHydrated,
+      refreshAuthState,
       signIn: async (payload: SignInPayload) => {
+        if (!payload.username.trim()) {
+          return { ok: false, message: 'Ingresa usuario.' };
+        }
+        if (!payload.password.trim()) {
+          return { ok: false, message: 'Ingresa contrasena.' };
+        }
+
         try {
-          const validation = validateSignInInput(payload);
-          if (!validation.ok) {
-            return { ok: false, message: validation.message };
-          }
+          const response = await login({
+            username: payload.username.trim().toLowerCase(),
+            password: payload.password,
+          });
+          setApiAuthToken(response.token);
+          await saveSessionStore(response.token);
 
-          const username = normalizeUsername(payload.username);
-          const target = users.find((item) => item.username === username);
-          if (!target) {
-            const audit = buildAuditEvent('LOGIN_FAILED', username, 'Usuario no encontrado.');
-            setAuditLog((prev) => [audit, ...prev]);
-            return { ok: false, message: 'Usuario o contrasena incorrectos.' };
-          }
-          if (!target.isActive) {
-            const audit = buildAuditEvent('LOGIN_FAILED', username, 'Usuario inactivo.', target.role);
-            setAuditLog((prev) => [audit, ...prev]);
-            return { ok: false, message: 'Tu usuario esta inactivo.' };
-          }
-
-          const isPasswordValid = await verifyPassword(payload.password, target.password);
-          if (!isPasswordValid) {
-            const audit = buildAuditEvent('LOGIN_FAILED', username, 'Contrasena incorrecta.', target.role);
-            setAuditLog((prev) => [audit, ...prev]);
-            return { ok: false, message: 'Usuario o contrasena incorrectos.' };
-          }
-
-          setUser(toAuthUser(target));
-          const audit = buildAuditEvent('LOGIN_SUCCESS', username, 'Inicio de sesion exitoso.', target.role);
-          setAuditLog((prev) => [audit, ...prev]);
+          const nextUser = toAuthUser(response.user);
+          setUser(nextUser);
+          await refreshAuditLog(nextUser.role);
           return { ok: true, message: 'Bienvenido.' };
         } catch (error) {
-          const username = normalizeUsername(payload.username);
-          setAuditLog((prev) => [
-            buildAuditEvent('LOGIN_FAILED', username, 'Error inesperado al iniciar sesion.'),
-            ...prev,
-          ]);
-          return toActionFailure(error, 'No fue posible iniciar sesion.');
+          return {
+            ok: false,
+            message: error instanceof Error ? error.message : 'No fue posible iniciar sesion.',
+          };
         }
       },
-      signOut: () => {
-        if (user) {
-          const audit = buildAuditEvent('LOGOUT', user.username, 'Cierre de sesion manual.', user.role);
-          setAuditLog((prev) => [audit, ...prev]);
+      signOut: async () => {
+        try {
+          await logout();
+        } catch {
+          // Ignore logout network errors and clear local session anyway.
         }
+        setApiAuthToken(null);
         setUser(null);
+        setAuditLog([]);
+        await clearSessionStore();
       },
     }),
-    [areUsersHydrated, auditLog, isHydrated, user, users],
+    [auditLog, isHydrated, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -202,4 +157,3 @@ export function useAuth() {
 
   return context;
 }
-

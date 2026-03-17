@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useProfile } from '@/context/ProfileContext';
 import { useAuth } from '@/state/AuthContext';
@@ -60,7 +60,7 @@ export default function DriverProfileScreen() {
 
   const saveProfile = async () => {
     setIsSaving(true);
-    const result = updateProfile(form);
+    const result = await updateProfile(form);
     showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
     await new Promise((resolve) => setTimeout(resolve, 250));
     setIsSaving(false);
@@ -196,4 +196,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
 
