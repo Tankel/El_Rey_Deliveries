@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MX_STATES } from '@/data/mxStates';
 import { useProfile } from '@/context/ProfileContext';
@@ -43,12 +43,14 @@ export default function CheckoutAddressScreen() {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [isResolvingPostalCode, setIsResolvingPostalCode] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Completa tu domicilio para continuar al pago.');
   const debouncedPostalCode = useDebouncedValue(form.postalCode);
   const debouncedSearch = useDebouncedValue(searchQuery);
   const lastPostalCodeLookup = useRef('');
   const hasPrefilledDefault = useRef(false);
+  const checkoutFlowLocked = useRef(false);
 
   useEffect(() => {
     if (!profile || hasPrefilledDefault.current) {
@@ -239,10 +241,19 @@ export default function CheckoutAddressScreen() {
   };
 
   const continueToPayment = async () => {
+    if (checkoutFlowLocked.current || isSubmitting || isSavingAddress) {
+      return;
+    }
+    checkoutFlowLocked.current = true;
+    const unlockFlow = () => {
+      checkoutFlowLocked.current = false;
+    };
+
     const basic = validateStructuredAddressInput(form);
     if (!basic.ok) {
       setStatusMessage(basic.message);
       showToast({ message: basic.message, type: 'error' });
+      unlockFlow();
       return;
     }
 
@@ -253,6 +264,7 @@ export default function CheckoutAddressScreen() {
 
     if (!result.ok || !result.location) {
       showToast({ message: result.message, type: 'error' });
+      unlockFlow();
       return;
     }
     const location = result.location;
@@ -266,48 +278,39 @@ export default function CheckoutAddressScreen() {
     );
 
     if (!alreadySaved) {
-      Alert.alert(
-        'Guardar direccion',
-        'Quieres guardar esta direccion para usarla despues?',
-        [
-          {
-            text: 'No guardar',
-            style: 'cancel',
-            onPress: () => proceedToPayment(location),
-          },
-          {
-            text: 'Guardar y continuar',
-            onPress: async () => {
-              const saveResult = await addSavedAddress({
-                label: `${form.street} ${form.exteriorNumber}`.trim() || 'Direccion',
-                formattedAddress: location.formattedAddress,
-                street: form.street,
-                exteriorNumber: form.exteriorNumber,
-                interiorNumber: form.interiorNumber,
-                neighborhood: form.neighborhood,
-                city: form.city,
-                state: form.state,
-                postalCode: form.postalCode,
-                references: form.references,
-                lat: location.lat,
-                lng: location.lng,
-                placeId: location.placeId,
-                validatedBy: location.validatedBy,
-                isDefault: false,
-              });
-              if (!saveResult.ok) {
-                showToast({ message: saveResult.message, type: 'error' });
-              } else {
-                showToast({ message: saveResult.message, type: 'success' });
-              }
-              proceedToPayment(location);
-            },
-          },
-        ],
-      );
-      return;
+      setIsSavingAddress(true);
+      const saveResult = await addSavedAddress({
+        label: `${form.street} ${form.exteriorNumber}`.trim() || 'Direccion',
+        formattedAddress: location.formattedAddress,
+        street: form.street,
+        exteriorNumber: form.exteriorNumber,
+        interiorNumber: form.interiorNumber,
+        neighborhood: form.neighborhood,
+        city: form.city,
+        state: form.state,
+        postalCode: form.postalCode,
+        references: form.references,
+        lat: location.lat,
+        lng: location.lng,
+        placeId: location.placeId,
+        validatedBy: location.validatedBy,
+        isDefault: false,
+      });
+      if (!saveResult.ok) {
+        showToast({ message: saveResult.message, type: 'error' });
+        const looksLikeDuplicate = saveResult.message.toLowerCase().includes('ya esta guardada');
+        setIsSavingAddress(false);
+        if (!looksLikeDuplicate) {
+          unlockFlow();
+          return;
+        }
+      } else {
+        showToast({ message: 'Direccion guardada en tu perfil.', type: 'success' });
+        setIsSavingAddress(false);
+      }
     }
 
+    unlockFlow();
     proceedToPayment(location);
   };
 
@@ -375,7 +378,10 @@ export default function CheckoutAddressScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.fieldLabel}>Calle</Text>
+        <Text style={styles.fieldLabel}>
+          Calle
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.street}
           onChangeText={(value) => setField('street', value)}
@@ -386,7 +392,10 @@ export default function CheckoutAddressScreen() {
 
         <View style={styles.row}>
           <View style={styles.flexField}>
-            <Text style={styles.fieldLabel}>Numero exterior</Text>
+            <Text style={styles.fieldLabel}>
+              Numero exterior
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.exteriorNumber}
               onChangeText={(value) => setField('exteriorNumber', value)}
@@ -407,7 +416,10 @@ export default function CheckoutAddressScreen() {
           </View>
         </View>
 
-        <Text style={styles.fieldLabel}>Colonia</Text>
+        <Text style={styles.fieldLabel}>
+          Colonia
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.neighborhood}
           onChangeText={(value) => setField('neighborhood', value)}
@@ -418,7 +430,10 @@ export default function CheckoutAddressScreen() {
 
         <View style={styles.row}>
           <View style={styles.flexField}>
-            <Text style={styles.fieldLabel}>Codigo postal</Text>
+            <Text style={styles.fieldLabel}>
+              Codigo postal
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.postalCode}
               onChangeText={(value) => setField('postalCode', value.replace(/\D/g, '').slice(0, 5))}
@@ -430,7 +445,10 @@ export default function CheckoutAddressScreen() {
             {isResolvingPostalCode ? <Text style={styles.helperText}>Buscando estado/ciudad por CP...</Text> : null}
           </View>
           <View style={styles.flexField}>
-            <Text style={styles.fieldLabel}>Ciudad / Municipio</Text>
+            <Text style={styles.fieldLabel}>
+              Ciudad / Municipio
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.city}
               onChangeText={(value) => setField('city', value)}
@@ -441,7 +459,10 @@ export default function CheckoutAddressScreen() {
           </View>
         </View>
 
-        <Text style={styles.fieldLabel}>Estado</Text>
+        <Text style={styles.fieldLabel}>
+          Estado
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.state}
           onChangeText={(value) => setField('state', value)}
@@ -480,8 +501,9 @@ export default function CheckoutAddressScreen() {
 
       <PrimaryButton
         label="Continuar a pago"
-        loading={isSubmitting}
-        loadingLabel="Validando domicilio..."
+        loading={isSubmitting || isSavingAddress}
+        loadingLabel={isSavingAddress ? 'Guardando direccion...' : 'Validando domicilio...'}
+        disabled={isSavingAddress}
         onPress={continueToPayment}
       />
     </ScrollView>
@@ -569,6 +591,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '700',
     fontSize: typography.caption,
+  },
+  required: {
+    color: colors.danger,
   },
   input: {
     borderWidth: 1,

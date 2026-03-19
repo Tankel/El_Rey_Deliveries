@@ -7,7 +7,14 @@ import { PrimaryButton } from '@/ui/components/atoms/PrimaryButton';
 import { useToast } from '@/ui/feedback/ToastContext';
 import { colors, radius, spacing, typography } from '@/ui/theme/tokens';
 
-const METHODS: PaymentMethod[] = ['TARJETA', 'EFECTIVO', 'TRANSFERENCIA'];
+const METHODS: PaymentMethod[] = ['EFECTIVO', 'TERMINAL', 'TRANSFERENCIA'];
+
+const METHOD_LABELS: Record<PaymentMethod, string> = {
+  EFECTIVO: 'Efectivo',
+  TERMINAL: 'Terminal',
+  TRANSFERENCIA: 'Transferencia',
+  TARJETA: 'Terminal',
+};
 
 function formatCurrency(value: number) {
   return `$${value.toFixed(2)}`;
@@ -24,7 +31,7 @@ export default function PaymentSimulationScreen() {
   }>();
   const { items, subtotal, totalSavings, confirmOrder } = useCart();
   const { showToast } = useToast();
-  const [method, setMethod] = useState<PaymentMethod>('TARJETA');
+  const [method, setMethod] = useState<PaymentMethod>('EFECTIVO');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const address = typeof params.address === 'string' ? params.address : '';
@@ -52,8 +59,8 @@ export default function PaymentSimulationScreen() {
     }
 
     Alert.alert(
-      'Confirmar pago',
-      `Metodo: ${method}. Total: ${formatCurrency(subtotal)}. Deseas confirmar?`,
+      'Confirmar pedido',
+      `Pago contra entrega (${METHOD_LABELS[method]}). Total: ${formatCurrency(subtotal)}. Deseas confirmar el pedido?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -70,9 +77,9 @@ export default function PaymentSimulationScreen() {
                 validatedBy,
                 validatedAt: new Date().toISOString(),
               },
-              notes: `Pago simulado confirmado (${method}).`,
+              notes: `Pago contra entrega (${METHOD_LABELS[method]}).`,
               paymentMethod: method,
-              paymentStatus: 'PAGADO_SIMULADO',
+              paymentStatus: 'PENDIENTE_PAGO',
             });
             showToast({ message: result.message, type: result.ok ? 'success' : 'error' });
             await new Promise((resolve) => setTimeout(resolve, 220));
@@ -88,8 +95,8 @@ export default function PaymentSimulationScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Simulacion de pago</Text>
-      <Text style={styles.subtitle}>Confirma tu metodo y revisa el resumen antes de generar el pedido.</Text>
+      <Text style={styles.title}>Pago contra entrega</Text>
+      <Text style={styles.subtitle}>Selecciona como pagaras al recibir: efectivo, terminal o transferencia.</Text>
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Resumen</Text>
@@ -114,7 +121,7 @@ export default function PaymentSimulationScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Metodo de pago</Text>
+        <Text style={styles.sectionTitle}>Metodo de pago al entregar</Text>
         <View style={styles.methodsRow}>
           {METHODS.map((item) => {
             const selected = item === method;
@@ -124,7 +131,7 @@ export default function PaymentSimulationScreen() {
                 style={[styles.methodChip, selected && styles.methodChipSelected]}
                 onPress={() => setMethod(item)}
               >
-                <Text style={[styles.methodText, selected && styles.methodTextSelected]}>{item}</Text>
+                <Text style={[styles.methodText, selected && styles.methodTextSelected]}>{METHOD_LABELS[item]}</Text>
               </Pressable>
             );
           })}
@@ -132,9 +139,9 @@ export default function PaymentSimulationScreen() {
       </View>
 
       <PrimaryButton
-        label="Pagar y confirmar pedido"
+        label="Confirmar pedido"
         loading={isSubmitting}
-        loadingLabel="Confirmando..."
+        loadingLabel="Creando pedido..."
         disabled={!hasDeliveryLocation}
         onPress={submitPayment}
       />

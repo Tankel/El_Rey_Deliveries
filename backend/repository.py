@@ -47,6 +47,7 @@ class MongoStateRepository:
 
     def _ensure_indexes(self) -> None:
         try:
+            self._drop_legacy_unique_indexes()
             self._users.create_index('username', unique=True)
             self._orders.create_index('status')
             self._orders.create_index('clientId')
@@ -54,15 +55,33 @@ class MongoStateRepository:
             self._notifications.create_index('audience')
             self._notifications.create_index('targetUserId')
             self._audit_log.create_index('at')
-            self._profiles.create_index('userId', unique=True)
         except PyMongoError as exc:
             raise RuntimeError(f'No se pudieron crear indices en MongoDB: {exc}') from exc
 
+    def _drop_legacy_unique_indexes(self) -> None:
+        collections = [
+            self._users,
+            self._products,
+            self._orders,
+            self._profiles,
+            self._notifications,
+            self._audit_log,
+        ]
+        for collection in collections:
+            info = collection.index_information()
+            for index_name, spec in info.items():
+                if index_name == '_id_':
+                    continue
+                key_fields = [item[0] for item in spec.get('key', [])]
+                if spec.get('unique') and any(field in {'id', 'userId'} for field in key_fields):
+                    collection.drop_index(index_name)
+
     @staticmethod
-    def _strip_internal_fields(doc: Dict[str, Any]) -> Dict[str, Any]:
+    def _from_mongo_doc(doc: Dict[str, Any], id_field: str) -> Dict[str, Any]:
         clean = dict(doc)
-        clean.pop('_id', None)
+        entity_id = str(clean.pop('_id', ''))
         clean.pop('_order', None)
+        clean[id_field] = entity_id
         return clean
 
     @staticmethod
@@ -71,6 +90,7 @@ class MongoStateRepository:
         for index, item in enumerate(docs):
             doc = dict(item)
             entity_id = str(doc.get(key_field) or f'{key_field}-{index}')
+            doc.pop(key_field, None)
             doc['_id'] = entity_id
             doc['_order'] = index
             prepared.append(doc)
@@ -87,19 +107,19 @@ class MongoStateRepository:
         if docs:
             collection.insert_many(docs, ordered=True)
 
-    def _load_collection(self, collection: Collection) -> List[Dict[str, Any]]:
+    def _load_collection(self, collection: Collection, id_field: str) -> List[Dict[str, Any]]:
         return [
-            self._strip_internal_fields(item)
+            self._from_mongo_doc(item, id_field=id_field)
             for item in collection.find({}, sort=[('_order', 1)])
         ]
 
     def _load_from_entity_collections(self) -> Optional[Dict[str, Any]]:
-        users = self._load_collection(self._users)
-        products = self._load_collection(self._products)
-        orders = self._load_collection(self._orders)
-        notifications = self._load_collection(self._notifications)
-        audit_log = self._load_collection(self._audit_log)
-        profiles_list = self._load_collection(self._profiles)
+        users = self._load_collection(self._users, id_field='id')
+        products = self._load_collection(self._products, id_field='id')
+        orders = self._load_collection(self._orders, id_field='id')
+        notifications = self._load_collection(self._notifications, id_field='id')
+        audit_log = self._load_collection(self._audit_log, id_field='id')
+        profiles_list = self._load_collection(self._profiles, id_field='userId')
 
         has_any_data = any([
             users,
@@ -134,10 +154,26 @@ class MongoStateRepository:
         state = doc.get('state')
         return state if isinstance(state, dict) else None
 
+    def _has_duplicate_domain_id_fields(self) -> bool:
+        checks = [
+            (self._users, 'id'),
+            (self._products, 'id'),
+            (self._orders, 'id'),
+            (self._notifications, 'id'),
+            (self._audit_log, 'id'),
+            (self._profiles, 'userId'),
+        ]
+        for collection, field in checks:
+            if collection.find_one({field: {'$exists': True}}):
+                return True
+        return False
+
     def load_state(self) -> Optional[Dict[str, Any]]:
         try:
             current_state = self._load_from_entity_collections()
             if current_state:
+                if self._has_duplicate_domain_id_fields():
+                    self.save_state(current_state)
                 return current_state
 
             legacy_state = self._load_legacy_snapshot()

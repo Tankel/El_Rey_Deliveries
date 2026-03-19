@@ -1,4 +1,6 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, status
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from dependencies import get_current_user, require_roles
 from schemas import LoginRequest, LoginResponse
@@ -6,6 +8,7 @@ from security import build_token
 from store import store
 
 router = APIRouter(prefix='/auth', tags=['Auth'])
+ALLOW_DEMO_RESET = os.getenv('EL_REY_ENABLE_DEMO_RESET', 'true').strip().lower() in {'1', 'true', 'yes'}
 
 
 @router.post('/login', response_model=LoginResponse)
@@ -53,6 +56,8 @@ def audit_log(_: dict = Depends(require_roles('ADMIN'))):
 
 
 @router.post('/reset-demo')
-def reset_demo_data():
+def reset_demo_data(_: dict = Depends(require_roles('ADMIN'))):
+    if not ALLOW_DEMO_RESET:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Reset demo deshabilitado en este ambiente.')
     store.reset_demo_data()
     return {'ok': True, 'message': 'Datos demo restaurados.'}

@@ -235,6 +235,7 @@ class AppStore:
                 id='order-1001',
                 clientId='cliente-demo',
                 clientName='Cliente Demo',
+                clientPhone='+52 555 000 0002',
                 address='Av. Central 123',
                 status='PENDIENTE',
                 total=320,
@@ -434,6 +435,31 @@ class AppStore:
                 profile = self.get_profile(user_id)
                 self.profiles[user_id] = profile
 
+            normalized_formatted = payload.formattedAddress.strip().lower()
+            normalized_street = payload.street.strip().lower()
+            normalized_exterior = payload.exteriorNumber.strip().lower()
+            normalized_postal = payload.postalCode.strip()
+            duplicate = next(
+                (
+                    item
+                    for item in profile.savedAddresses
+                    if (
+                        payload.placeId
+                        and item.placeId
+                        and item.placeId == payload.placeId
+                    )
+                    or (
+                        item.formattedAddress.strip().lower() == normalized_formatted
+                        and item.street.strip().lower() == normalized_street
+                        and item.exteriorNumber.strip().lower() == normalized_exterior
+                        and item.postalCode.strip() == normalized_postal
+                    )
+                ),
+                None,
+            )
+            if duplicate:
+                raise ValueError('Esta direccion ya esta guardada.')
+
             now = now_iso()
             address = SavedAddress(
                 id=f"addr-{uuid4().hex[:8]}",
@@ -520,8 +546,21 @@ class AppStore:
             if product:
                 product.stock += quantity
 
+    def _resolve_client_phone(self, client_id: str) -> Optional[str]:
+        user = self.get_user_by_id(client_id)
+        if user and user.get('phone'):
+            return str(user['phone']).strip()
+        profile = self.profiles.get(client_id)
+        if profile and profile.phone:
+            return profile.phone.strip()
+        return None
+
     def list_orders(self) -> List[Order]:
-        return deepcopy(self.orders)
+        orders = deepcopy(self.orders)
+        for order in orders:
+            if not order.clientPhone:
+                order.clientPhone = self._resolve_client_phone(order.clientId)
+        return orders
 
     def list_driver_profiles(self) -> List[DriverProfile]:
         drivers = [item for item in self.users if item['role'] == 'DRIVER' and item['isActive']]
@@ -542,12 +581,20 @@ class AppStore:
 
             timestamp = now_iso()
             payment_method = payload.paymentMethod or 'EFECTIVO'
-            payment_status = payload.paymentStatus or 'PENDIENTE_PAGO'
+            payment_status = 'PENDIENTE_PAGO'
+            client_user = self.get_user_by_id(payload.clientId)
+            client_phone = None
+            if client_user:
+                client_phone = client_user.get('phone')
+            if not client_phone:
+                profile = self.profiles.get(payload.clientId)
+                client_phone = profile.phone if profile else None
 
             order = Order(
                 id=f"order-{uuid4().hex[:10]}",
                 clientId=payload.clientId,
                 clientName=payload.clientName,
+                clientPhone=(client_phone or payload.clientPhone or '').strip() or None,
                 address=payload.address.strip(),
                 notes=payload.notes,
                 status='PENDIENTE',
@@ -634,6 +681,9 @@ class AppStore:
                 self._release_stock(order.items)
                 order.stockReleasedAt = timestamp
 
+            if payload.status == 'ENTREGADO' and order.paymentStatus == 'PENDIENTE_PAGO':
+                order.paymentStatus = 'PAGADO_ENTREGA'
+
             if previous_status == 'CANCELADO' and payload.status != 'CANCELADO' and order.stockReleasedAt:
                 reserve_plan = self._build_reserve_plan(order.items)
                 for entry in reserve_plan:
@@ -672,10 +722,6 @@ class AppStore:
                 recipient_name = (payload.deliveryRecipientName or '').strip()
                 if len(note) < 8 or len(recipient_name) < 3 or not payload.deliveryRecipientRelation:
                     raise ValueError('Entrega invalida: nota (min 8), receptor y relacion son obligatorios.')
-                otp = (payload.deliveryOtp or '').strip()
-                photo = (payload.deliveryPhotoUri or '').strip()
-                if not otp and not photo:
-                    raise ValueError('Entrega invalida: se requiere OTP o foto.')
 
             timestamp = now_iso()
             order.status = next_status
@@ -701,6 +747,8 @@ class AppStore:
                     'capturedAt': timestamp,
                     'capturedByUserId': payload.actorId,
                 }
+                if order.paymentStatus == 'PENDIENTE_PAGO':
+                    order.paymentStatus = 'PAGADO_ENTREGA'
 
             if next_status == 'CANCELADO' and order.stockReservedAt and not order.stockReleasedAt:
                 self._release_stock(order.items)

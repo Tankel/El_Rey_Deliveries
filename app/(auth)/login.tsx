@@ -28,9 +28,12 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>El Rey Distribuidora</Text>
-      <Text style={styles.subtitle}>Inicia sesion con tu usuario y contraseña</Text>
+      <Text style={styles.subtitle}>Inicia sesion con tu usuario y contrasena</Text>
 
-      <Text style={styles.label}>Usuario</Text>
+      <Text style={styles.label}>
+        Usuario
+        <Text style={styles.required}> *</Text>
+      </Text>
       <TextInput
         value={username}
         onChangeText={setUsername}
@@ -39,11 +42,14 @@ export default function LoginScreen() {
         placeholderTextColor={colors.textMuted}
         style={styles.input}
       />
-      <Text style={styles.label}>Contraseña</Text>
+      <Text style={styles.label}>
+        Contrasena
+        <Text style={styles.required}> *</Text>
+      </Text>
       <TextInput
         value={password}
         onChangeText={setPassword}
-        placeholder="Contraseña"
+        placeholder="Contrasena"
         secureTextEntry
         autoCapitalize="none"
         placeholderTextColor={colors.textMuted}
@@ -103,6 +109,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '700',
     fontSize: 13,
+  },
+  required: {
+    color: colors.danger,
   },
   input: {
     borderWidth: 1,

@@ -21,7 +21,8 @@ export function canTransition(current: OrderStatus, next: OrderStatus) {
 }
 
 export function requiresPrepayment(method: PaymentMethod) {
-  return method === 'TARJETA' || method === 'TRANSFERENCIA';
+  void method;
+  return false;
 }
 
 export function validatePaymentForTransition(
@@ -43,13 +44,7 @@ export function validatePaymentForTransition(
     };
   }
 
-  if (requiresPrepayment(method) && status !== 'PAGADO_SIMULADO') {
-    return {
-      ok: false,
-      message: 'Este pedido requiere pago confirmado antes de avanzar.',
-    };
-  }
+  void method;
 
   return { ok: true, message: 'ok' };
 }
-

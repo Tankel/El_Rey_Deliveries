@@ -23,9 +23,9 @@ describe('orderRules', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('bloquea tarjeta sin pago confirmado', () => {
+  it('permite avanzar con pago contra entrega pendiente', () => {
     const result = validatePaymentForTransition('TARJETA', 'PENDIENTE_PAGO', 'ASIGNADO');
-    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(true);
   });
 
   it('permite cancelar incluso sin pago confirmado', () => {
@@ -33,4 +33,3 @@ describe('orderRules', () => {
     expect(result.ok).toBe(true);
   });
 });
-

@@ -19,6 +19,8 @@ const ALL_COLUMNS: Array<{ key: UserColumn; label: string }> = [
   { key: 'phone', label: 'Telefono' },
   { key: 'isActive', label: 'Activo' },
 ];
+const FIXED_COLUMNS: UserColumn[] = ['username'];
+const FILTERABLE_COLUMNS = ALL_COLUMNS.filter((column) => !FIXED_COLUMNS.includes(column.key));
 
 type UserFormState = {
   username: string;
@@ -75,9 +77,16 @@ export default function AdminUsersScreen() {
   }, [debouncedQuery, users]);
 
   const toggleColumn = useCallback((column: UserColumn) => {
-    setVisibleColumns((prev) =>
-      prev.includes(column) ? prev.filter((item) => item !== column) : [...prev, column],
-    );
+    if (FIXED_COLUMNS.includes(column)) {
+      return;
+    }
+    setVisibleColumns((prev) => {
+      const normalized: UserColumn[] = prev.includes('username') ? prev : ['username', ...prev];
+      if (normalized.includes(column)) {
+        return normalized.filter((item) => item !== column) as UserColumn[];
+      }
+      return [...normalized, column] as UserColumn[];
+    });
   }, []);
 
   const scrollToTop = useCallback(() => {
@@ -165,7 +174,7 @@ export default function AdminUsersScreen() {
   const renderRow = useCallback(
     ({ item }: { item: AdminUser }) => (
       <View style={styles.row}>
-        {visibleColumns.includes('username') ? <Text style={styles.cell}>{item.username}</Text> : null}
+        <Text style={styles.cell}>{item.username}</Text>
         {visibleColumns.includes('fullName') ? <Text style={styles.cell}>{item.fullName}</Text> : null}
         {visibleColumns.includes('role') ? <Text style={styles.cell}>{item.role}</Text> : null}
         {visibleColumns.includes('email') ? <Text style={styles.cell}>{item.email}</Text> : null}
@@ -201,7 +210,10 @@ export default function AdminUsersScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{editingId ? 'Editar usuario' : 'Agregar usuario'}</Text>
 
-            <Text style={styles.fieldLabel}>Username</Text>
+            <Text style={styles.fieldLabel}>
+              Username
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.username}
               onChangeText={(value) => setForm((prev) => ({ ...prev, username: value }))}
@@ -213,6 +225,7 @@ export default function AdminUsersScreen() {
 
             <Text style={styles.fieldLabel}>
               {editingId ? 'Nueva contrasena (opcional)' : 'Contrasena'}
+              {editingId ? null : <Text style={styles.required}> *</Text>}
             </Text>
             <TextInput
               value={form.password}
@@ -224,7 +237,10 @@ export default function AdminUsersScreen() {
               style={styles.input}
             />
 
-            <Text style={styles.fieldLabel}>Nombre completo</Text>
+            <Text style={styles.fieldLabel}>
+              Nombre completo
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.fullName}
               onChangeText={(value) => setForm((prev) => ({ ...prev, fullName: value }))}
@@ -233,7 +249,10 @@ export default function AdminUsersScreen() {
               style={styles.input}
             />
 
-            <Text style={styles.fieldLabel}>Correo</Text>
+            <Text style={styles.fieldLabel}>
+              Correo
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.email}
               onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
@@ -243,7 +262,10 @@ export default function AdminUsersScreen() {
               style={styles.input}
             />
 
-            <Text style={styles.fieldLabel}>Telefono</Text>
+            <Text style={styles.fieldLabel}>
+              Telefono
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.phone}
               onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value }))}
@@ -303,7 +325,7 @@ export default function AdminUsersScreen() {
           </View>
           {showColumnFilters ? (
             <View style={styles.chipsWrap}>
-              {ALL_COLUMNS.map((column) => {
+              {FILTERABLE_COLUMNS.map((column) => {
                 const selected = visibleColumns.includes(column.key);
                 return (
                   <Pressable
@@ -422,6 +444,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: typography.caption,
     marginTop: 2,
+  },
+  required: {
+    color: colors.danger,
   },
   input: {
     borderWidth: 1,

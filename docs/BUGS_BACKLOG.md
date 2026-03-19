@@ -2,137 +2,115 @@
 
 Fecha de corte: 2026-03-19.
 
+## Decision de alcance actual
+
+- `Pago real` se mantiene en pausa temporal.
+- El foco actual es: estabilidad, UX, seguridad operativa y datos reales.
+- Los pagos operan como `contra entrega` (sin pasarela online), y se marcan como pagados al entregar.
+
 ## Criterio de prioridad
 
-- `P0`: bloquea salida real a produccion o representa riesgo alto (dinero, seguridad, datos, cumplimiento).
-- `P1`: necesario para operar bien en entorno real, pero no bloquea primer go-live controlado.
-- `P2`: mejora operativa/comercial para escalar.
+- `P0`: bloquea operacion estable o pone en riesgo seguridad/datos.
+- `P1`: necesario para operar bien con clientes reales.
+- `P2`: escalamiento comercial/logistico.
+- `PAUSADO`: pendiente intencional fuera del alcance actual.
 
-## P0 - Bloqueantes de produccion (ejecutar primero)
+## P0 - Sprint actual (sin pasarela de pago)
 
-1. Pago real (reemplazar flujo simulado)
-- Estado actual: se usa `PAGADO_SIMULADO`.
-- Impacto: sin cobro real no hay operacion comercial valida.
-- Entregable minimo:
-  - Integracion con pasarela real (Stripe/Conekta/Openpay/Mercado Pago).
-  - Webhooks para confirmar pago.
-  - Reintentos y reversa/reembolso basico.
-  - Conciliacion pedido-pago.
-- Referencias: `backend/schemas.py`, `app/(client)/payment.tsx`.
+1. Seguridad de cuentas y sesiones
+- Estado: `PENDIENTE`.
+- Falta:
+  - Forgot password con token y expiracion.
+  - Refresh token + rotacion.
+  - Revocacion por dispositivo.
+  - Verificacion email o telefono.
+- Referencia: `backend/routes/auth.py`.
 
-2. Seguridad de cuentas y sesiones
-- Estado actual: login/logout basico.
-- Impacto: riesgo de secuestro de sesion y mala recuperacion de acceso.
-- Entregable minimo:
-  - `forgot password` + reset token con expiracion.
-  - Refresh token y rotacion.
-  - Cierre de sesion por dispositivo.
-  - Verificacion de email/telefono (minimo uno).
-- Referencias: `backend/routes/auth.py`.
-
-3. Hardening de produccion
-- Estado actual: hay endpoints de demo y faltan controles operativos.
-- Impacto: riesgo de abuso, perdida de datos y baja trazabilidad.
-- Entregable minimo:
-  - Deshabilitar `/auth/reset-demo` fuera de desarrollo.
-  - Rate limiting por IP/usuario.
-  - CORS por allowlist (no `*` en prod).
-  - Logs estructurados + monitoreo de errores.
-  - Backups y restauracion probada.
-  - Separacion de ambientes (dev/stage/prod).
+2. Hardening de produccion
+- Estado: `EN CURSO`.
+- Avance hecho:
+  - `/auth/reset-demo` ahora se puede deshabilitar por env y requiere rol `ADMIN`.
+- Falta:
+  - Rate limiting.
+  - CORS por allowlist de dominios.
+  - Auditoria extendida y observabilidad.
+  - Backups/restauracion y ambientes separados.
 - Referencias: `backend/routes/auth.py`, `backend/main.py`.
 
+3. Subida real de archivos/fotos de evidencia
+- Estado: `PENDIENTE`.
+- Falta:
+  - Storage cloud (S3/Cloudinary/R2).
+  - Subida segura (direct upload o URL firmada).
+  - Metadatos + retencion/borrado.
+- Referencia: `backend/store.py`.
+
 4. Normalizacion de IDs en Mongo (`_id` vs `id`)
-- Estado actual: se guarda duplicado (`_id` y `id`) + `_order`.
-- Impacto: deuda tecnica y riesgo de inconsistencias.
-- Entregable minimo:
-  - Persistir solo `_id` en DB.
-  - Mapear `_id -> id` en capa API/respuesta.
-  - Script de migracion y compatibilidad.
-- Referencias: `backend/repository.py`.
+- Estado: `EN CURSO`.
+- Avance hecho:
+  - Repositorio actualizado para persistir canonico en `_id` y mapear a `id/userId` al leer.
+  - Limpieza automatica de campos duplicados legacy (`id`/`userId`) al cargar estado.
+- Falta:
+  - Verificacion en base ya poblada y script opcional de migracion explicito para ambientes productivos.
+- Referencia: `backend/repository.py`.
 
-5. Subida real de archivos/fotos de evidencia
-- Estado actual: se guarda `photoUri`, no archivo real.
-- Impacto: evidencia no confiable/auditable entre dispositivos.
-- Entregable minimo:
-  - Almacenamiento cloud (S3/Cloudinary/R2).
-  - URL firmada o flujo seguro de subida.
-  - Persistencia de metadatos (URL, size, mime, timestamp).
-  - Regla de borrado/retencion.
-- Referencias: `backend/store.py`.
-
-6. Bugs criticos de flujo actual
-- Bug A: doble submit al registrar direccion.
-- Bug B: cliente no ve prueba de entrega cuando pedido esta entregado.
-- Entregable minimo:
-  - Bloqueo de boton + idempotencia en backend para direcciones.
-  - Render completo de `deliveryProof` en vista cliente.
-- Referencias: `app/(client)/checkout-address.tsx`, `src/context/ProfileContext.tsx`, `app/(client)/orders/[id].tsx`, `backend/routes/profiles.py`.
+5. Bugs de UX criticos reportados
+- Estado global: `PARCIALMENTE RESUELTO`.
+- Bug A (doble submit al guardar direccion): `HECHO`.
+  - Front bloquea reintento y backend evita duplicados.
+  - Referencias: `app/(client)/checkout-address.tsx`, `backend/store.py`.
+- Bug B (cliente no ve prueba de entrega): `HECHO`.
+  - Ya se renderiza tarjeta de `deliveryProof` en pedido entregado.
+  - Referencia: `app/(client)/orders/[id].tsx`.
+- Bug C (boton "Ver producto" se sale del contenedor): `HECHO`.
+  - Ajuste responsive aplicado en dashboard admin.
+  - Referencia: `app/(admin)/(tabs)/dashboard.tsx`.
+- Bug D (filtros de usuarios dejan tabla inutil al ocultar todo): `HECHO`.
+  - `username` queda fijo visible y fuera de toggles.
+  - Referencia: `app/(admin)/users/index.tsx`.
+- Bug E (falta lazy load/listados): `PENDIENTE`.
+  - Falta paginacion/carga incremental consistente.
 
 ## P1 - Operacion real estable
 
-7. Notificaciones reales al usuario final
-- Estado actual: notificaciones internas (admin/driver) solamente.
-- Entregable:
-  - Push (Expo Notifications), email y/o SMS transaccional.
-  - Plantillas por evento: pedido creado, asignado, en camino, entregado.
+6. Notificaciones reales al usuario final
+- Estado: `PENDIENTE`.
+- Falta: push (Expo), email y/o SMS transaccional por eventos clave.
 
-8. Facturacion real / fiscal (MX)
-- Estado actual: UI de facturas sin backend fiscal completo.
-- Entregable:
-  - CFDI/timbrado (si aplica por regimen).
-  - Descarga de comprobantes.
-  - Relacion factura-pedido-pago.
+7. Facturacion real / fiscal (MX)
+- Estado: `PENDIENTE`.
+- Falta: backend fiscal, timbrado CFDI (si aplica) y descarga de comprobantes.
 
-9. Roles y permisos granulares (RBAC)
-- Estado actual: rol general por tipo (`ADMIN/CLIENT/DRIVER`).
-- Entregable:
-  - Permisos por accion/modulo.
-  - Roles administrativos diferenciados (catalogo, pedidos, finanzas, soporte).
+8. RBAC granular
+- Estado: `PENDIENTE`.
+- Falta: permisos por accion/modulo y roles administrativos especializados.
 
-10. Ajustes UX/Performance pendientes
-- Bug C: falta lazy load en pantallas/listados.
-- Bug D: boton "Ver producto" se desborda visualmente en alertas.
-- Bug E: en usuarios (admin), al quitar todos los filtros/columnas visibles solo quedan botones y la tabla pierde utilidad.
-- Entregable:
-  - Carga incremental/skeletons.
-  - Correccion responsive de tarjetas/acciones.
-  - En tabla de usuarios, mantener una columna minima obligatoria (`username`) y removerla de los toggles de filtros para que no pueda ocultarse.
+9. Mapa/costos de proveedor
+- Estado: `PENDIENTE`.
+- Falta: reducir dependencia de Google Maps y evaluar opciones costo-efectivas (ej. `react-native-maps` + proveedor de geocodificacion).
 
-## P2 - Escalamiento comercial y logistico
+## P2 - Escalamiento comercial/logistico
 
-11. Operacion logistica avanzada
-- Falta:
-  - Zonas de cobertura y costos por zona.
-  - Ventanas horarias.
-  - SLA y reasignacion automatica de repartidor.
+10. Operacion logistica avanzada
+- Zonas, costos por zona, ventanas horarias, SLA y auto-reasignacion.
 
-12. Inventario robusto
-- Falta:
-  - Entradas/compras.
-  - Ajustes auditables.
-  - Devoluciones.
-  - Lotes/caducidad.
-  - Multi-almacen.
+11. Inventario robusto
+- Compras/recepcion, ajustes auditables, devoluciones, lotes/caducidad, multi-almacen.
 
-13. Catalogo comercial mayoreo avanzado
-- Falta:
-  - Listas de precio por cliente.
-  - Promociones por volumen.
-  - Minimos por SKU.
-  - Disponibilidad por zona.
+12. Catalogo mayoreo avanzado
+- Listas de precio por cliente, promos por volumen, minimos por SKU, disponibilidad por zona.
 
-14. Plataforma de mapas de menor costo
-- Falta:
-  - Migrar de dependencia fuerte de Google Maps.
-  - Evaluar `react-native-maps` + proveedor gratuito para geocodificacion/autocomplete como OpenStreetMap.
+## PAUSADO (por decision actual)
 
-## Orden de ejecucion recomendado por bloques
+13. Pago online con pasarela (adicional a contra entrega)
+- Estado: `PAUSADO`.
+- Nota: se reactivara cuando decidas abrir el bloque de pasarela.
+- Referencias actuales: `backend/schemas.py`, `app/(client)/payment.tsx`.
 
-- Bloque A (P0): items `1, 2, 3, 4, 5, 6`.
-- Bloque B (P1): items `7, 8, 9, 10`.
-- Bloque C (P2): items `11, 12, 13, 14`.
+## Orden de ejecucion recomendado (bloques)
 
-## Nota operativa
-
-- Ya existe persistencia Mongo por coleccion; esta lista prioriza lo faltante para operar en entorno real con seguridad, cobro y trazabilidad.
+- Bloque A (P0 tecnico): items `1, 2, 3, 4`.
+- Bloque B (P0 UX final): item `5` (cerrar lazy load).
+- Bloque C (P1 operacion): items `6, 7, 8, 9`.
+- Bloque D (P2 escalamiento): items `10, 11, 12`.
+- Bloque E (cuando tu lo decidas): item `13` pago real.

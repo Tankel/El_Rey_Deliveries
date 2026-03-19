@@ -77,6 +77,8 @@ export default function DriverDeliveriesScreen() {
               </View>
             </View>
             <Text style={styles.address}>{item.address}</Text>
+            <Text style={styles.meta}>Cliente: {item.clientName}</Text>
+            <Text style={styles.meta}>Contacto: {item.clientPhone ?? 'No disponible'}</Text>
             <Text style={styles.meta}>
               Actualizado: {new Date(item.updatedAt).toLocaleString('es-MX')}
             </Text>

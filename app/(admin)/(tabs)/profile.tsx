@@ -72,7 +72,10 @@ export default function AdminProfileScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Informacion personal</Text>
-        <Text style={styles.fieldLabel}>Nombre completo</Text>
+        <Text style={styles.fieldLabel}>
+          Nombre completo
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.fullName}
           onChangeText={(value) => setForm((prev) => ({ ...prev, fullName: value }))}
@@ -80,7 +83,10 @@ export default function AdminProfileScreen() {
           placeholderTextColor={PLACEHOLDER_COLOR}
           style={styles.input}
         />
-        <Text style={styles.fieldLabel}>Numero de cuenta</Text>
+        <Text style={styles.fieldLabel}>
+          Numero de cuenta
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.accountNumber}
           onChangeText={(value) => setForm((prev) => ({ ...prev, accountNumber: value }))}
@@ -89,7 +95,10 @@ export default function AdminProfileScreen() {
           placeholderTextColor={PLACEHOLDER_COLOR}
           style={styles.input}
         />
-        <Text style={styles.fieldLabel}>Correo</Text>
+        <Text style={styles.fieldLabel}>
+          Correo
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.email}
           onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
@@ -98,7 +107,10 @@ export default function AdminProfileScreen() {
           placeholderTextColor={PLACEHOLDER_COLOR}
           style={styles.input}
         />
-        <Text style={styles.fieldLabel}>Telefono</Text>
+        <Text style={styles.fieldLabel}>
+          Telefono
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.phone}
           onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value }))}
@@ -106,7 +118,10 @@ export default function AdminProfileScreen() {
           placeholderTextColor={PLACEHOLDER_COLOR}
           style={styles.input}
         />
-        <Text style={styles.fieldLabel}>Nombre comercial</Text>
+        <Text style={styles.fieldLabel}>
+          Nombre comercial
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.businessName}
           onChangeText={(value) => setForm((prev) => ({ ...prev, businessName: value }))}
@@ -114,7 +129,10 @@ export default function AdminProfileScreen() {
           placeholderTextColor={PLACEHOLDER_COLOR}
           style={styles.input}
         />
-        <Text style={styles.fieldLabel}>RFC</Text>
+        <Text style={styles.fieldLabel}>
+          RFC
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.taxId}
           onChangeText={(value) => setForm((prev) => ({ ...prev, taxId: value }))}
@@ -123,7 +141,10 @@ export default function AdminProfileScreen() {
           placeholderTextColor={PLACEHOLDER_COLOR}
           style={styles.input}
         />
-        <Text style={styles.fieldLabel}>Direccion fiscal</Text>
+        <Text style={styles.fieldLabel}>
+          Direccion fiscal
+          <Text style={styles.required}> *</Text>
+        </Text>
         <TextInput
           value={form.billingAddress}
           onChangeText={(value) => setForm((prev) => ({ ...prev, billingAddress: value }))}
@@ -181,6 +202,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: typography.caption,
     marginTop: 2,
+  },
+  required: {
+    color: colors.danger,
   },
   input: {
     borderColor: colors.borderStrong,

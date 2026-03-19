@@ -57,7 +57,7 @@ describe('order lifecycle integration', () => {
     expect(canTransition('PENDIENTE', 'CONFIRMADO')).toBe(true);
     expect(canTransition('CONFIRMADO', 'ENTREGADO')).toBe(false);
 
-    const paymentValidation = validatePaymentForTransition('TARJETA', 'PAGADO_SIMULADO', 'ASIGNADO');
+    const paymentValidation = validatePaymentForTransition('TERMINAL', 'PENDIENTE_PAGO', 'ASIGNADO');
     expect(paymentValidation.ok).toBe(true);
 
     const release = buildReleaseStockPlan(items, afterReserve);
@@ -65,4 +65,3 @@ describe('order lifecycle integration', () => {
     expect(afterCancel[0]?.stock).toBe(8);
   });
 });
-

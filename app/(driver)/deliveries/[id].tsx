@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DeliveryRecipientRelation, ORDER_STATUSES, OrderStatus } from '@/types/domain';
 import { es } from '@/i18n/es';
 import { buildOrderTrackingInsight, formatEtaLabel } from '@/services/insights/orderTracking';
@@ -59,8 +59,7 @@ export default function DriverDeliveryDetailScreen() {
   const deliveryProofValid =
     deliveryNote.trim().length >= 8 &&
     deliveryRecipientName.trim().length >= 3 &&
-    Boolean(deliveryRecipientRelation) &&
-    (deliveryOtp.trim().length > 0 || deliveryPhotoUri.trim().length > 0);
+    Boolean(deliveryRecipientRelation);
   const trackingInsight = order ? buildOrderTrackingInsight(order, orders) : null;
 
   const historyMap = useMemo(() => {
@@ -96,6 +95,19 @@ export default function DriverDeliveryDetailScreen() {
     showToast({ message: 'Foto de entrega adjuntada.', type: 'success' });
   };
 
+  const callClient = async () => {
+    const phone = order?.clientPhone?.trim();
+    if (!phone) {
+      showToast({ message: 'Este pedido no tiene telefono de contacto.', type: 'error' });
+      return;
+    }
+    try {
+      await Linking.openURL(`tel:${phone}`);
+    } catch {
+      showToast({ message: 'No se pudo abrir la llamada en este dispositivo.', type: 'error' });
+    }
+  };
+
   if (!order) {
     return (
       <View style={styles.container}>
@@ -121,6 +133,19 @@ export default function DriverDeliveryDetailScreen() {
       <Text style={styles.meta}>Estado actual: {statusLabel(order.status)}</Text>
       <Text style={styles.meta}>Repartidor: {order.assignedDriverName ?? 'Sin asignar'}</Text>
 
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Contacto del cliente</Text>
+        <Text style={styles.meta}>Nombre: {order.clientName}</Text>
+        <Text style={styles.meta}>Telefono: {order.clientPhone ?? 'No disponible'}</Text>
+        <Pressable
+          style={[styles.callButton, !order.clientPhone && styles.callButtonDisabled]}
+          onPress={callClient}
+          disabled={!order.clientPhone}
+        >
+          <Text style={styles.callButtonText}>Llamar cliente</Text>
+        </Pressable>
+      </View>
+
       {trackingInsight?.isActive ? (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Rastreo operativo</Text>
@@ -141,7 +166,10 @@ export default function DriverDeliveryDetailScreen() {
           <>
             {nextAction.nextStatus === 'ENTREGADO' ? (
               <View style={styles.proofForm}>
-                <Text style={styles.inputLabel}>{es.driver.proofNoteLabel}</Text>
+                <Text style={styles.inputLabel}>
+                  {es.driver.proofNoteLabel}
+                  <Text style={styles.required}> *</Text>
+                </Text>
                 <TextInput
                   value={deliveryNote}
                   onChangeText={setDeliveryNote}
@@ -153,7 +181,10 @@ export default function DriverDeliveryDetailScreen() {
                 <Text style={styles.inputHelper}>
                   {deliveryNote.trim().length >= 8 ? 'Nota valida' : 'Faltan detalles de entrega'}
                 </Text>
-                <Text style={styles.inputLabel}>Nombre de quien recibe</Text>
+                <Text style={styles.inputLabel}>
+                  Nombre de quien recibe
+                  <Text style={styles.required}> *</Text>
+                </Text>
                 <TextInput
                   value={deliveryRecipientName}
                   onChangeText={setDeliveryRecipientName}
@@ -161,7 +192,10 @@ export default function DriverDeliveryDetailScreen() {
                   placeholderTextColor={colors.textMuted}
                   style={styles.input}
                 />
-                <Text style={styles.inputLabel}>Relacion con pedido</Text>
+                <Text style={styles.inputLabel}>
+                  Relacion con pedido
+                  <Text style={styles.required}> *</Text>
+                </Text>
                 <View style={styles.chipsWrap}>
                   {RECIPIENT_RELATIONS.map((relation) => {
                     const selected = relation === deliveryRecipientRelation;
@@ -209,7 +243,7 @@ export default function DriverDeliveryDetailScreen() {
                 {deliveryPhotoUri ? (
                   <Image source={{ uri: deliveryPhotoUri }} style={styles.photoPreview} resizeMode="cover" />
                 ) : (
-                  <Text style={styles.inputHelper}>Adjunta foto o captura OTP para cerrar la entrega.</Text>
+                  <Text style={styles.inputHelper}>Foto y OTP son opcionales.</Text>
                 )}
               </View>
             ) : null}
@@ -351,6 +385,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
   },
+  required: {
+    color: colors.danger,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.borderStrong,
@@ -466,5 +503,23 @@ const styles = StyleSheet.create({
   timelineDate: {
     color: colors.textMuted,
     fontSize: 12,
+  },
+  callButton: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  callButtonDisabled: {
+    backgroundColor: colors.textMuted,
+    borderColor: colors.textMuted,
+  },
+  callButtonText: {
+    color: colors.primaryText,
+    fontWeight: '700',
   },
 });

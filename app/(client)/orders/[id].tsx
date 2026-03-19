@@ -79,6 +79,7 @@ export default function ClientOrderDetailScreen() {
       ? buildGoogleStaticTrackingMapUrl(order.deliveryLocation, tracking.progressPercent)
       : null;
   const directionsUrl = order.deliveryLocation ? buildGoogleDirectionsUrl(order.deliveryLocation) : null;
+  const proof = order.deliveryProof;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -132,6 +133,35 @@ export default function ClientOrderDetailScreen() {
             <Pressable style={styles.mapButton} onPress={() => Linking.openURL(directionsUrl)}>
               <Text style={styles.mapButtonText}>Abrir ruta en Google Maps</Text>
             </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      {order.status === 'ENTREGADO' && proof ? (
+        <View style={styles.card}>
+          <Text style={styles.timelineTitle}>Prueba de entrega</Text>
+          <Text style={styles.label}>Receptor</Text>
+          <Text>
+            {proof.recipientName} ({proof.recipientRelation})
+          </Text>
+          {proof.recipientId ? (
+            <>
+              <Text style={styles.label}>Identificacion</Text>
+              <Text>{proof.recipientId}</Text>
+            </>
+          ) : null}
+          <Text style={styles.label}>Nota</Text>
+          <Text>{proof.note}</Text>
+          {proof.otp ? (
+            <>
+              <Text style={styles.label}>OTP</Text>
+              <Text>{proof.otp}</Text>
+            </>
+          ) : null}
+          <Text style={styles.label}>Capturado</Text>
+          <Text>{new Date(proof.capturedAt).toLocaleString('es-MX')}</Text>
+          {proof.photoUri ? (
+            <Image source={{ uri: proof.photoUri }} style={styles.proofPhoto} resizeMode="cover" />
           ) : null}
         </View>
       ) : null}
@@ -250,6 +280,13 @@ const styles = StyleSheet.create({
   mapButtonText: {
     color: colors.textPrimary,
     fontWeight: '700',
+  },
+  proofPhoto: {
+    width: '100%',
+    height: 180,
+    borderRadius: radius.md,
+    marginTop: 6,
+    backgroundColor: colors.surfaceMuted,
   },
   timelineTitle: {
     color: colors.textPrimary,

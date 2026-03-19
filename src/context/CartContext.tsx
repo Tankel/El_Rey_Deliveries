@@ -1,6 +1,5 @@
-﻿import { createContext, PropsWithChildren, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useCatalog } from '@/context/CatalogContext';
-import { requiresPrepayment } from '@/domain/rules/orderRules';
 import { Product } from '@/models/Product';
 import { useAuth } from '@/state/AuthContext';
 import { useOrders } from '@/state/OrdersContext';
@@ -50,6 +49,15 @@ export function CartProvider({ children }: PropsWithChildren) {
   const { user } = useAuth();
   const { createOrder } = useOrders();
   const { products } = useCatalog();
+  const lastUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    if (lastUserIdRef.current !== currentUserId) {
+      setItems([]);
+      lastUserIdRef.current = currentUserId;
+    }
+  }, [user?.id]);
 
   const getItemQuantity = useCallback(
     (productId: string) => items.find((item) => item.product.id === productId)?.quantity ?? 0,
@@ -165,13 +173,6 @@ export function CartProvider({ children }: PropsWithChildren) {
       if (paymentStatus === 'RECHAZADO') {
         return { ok: false, message: 'No puedes confirmar con pago rechazado.' };
       }
-      if (requiresPrepayment(paymentMethod) && paymentStatus !== 'PAGADO_SIMULADO') {
-        return {
-          ok: false,
-          message: 'Debes confirmar el pago antes de enviar el pedido.',
-        };
-      }
-
       const computedTotal = items.reduce((total, item) => total + item.product.price * item.quantity, 0);
       if (computedTotal <= 0) {
         return { ok: false, message: 'El total del carrito es invalido.' };
@@ -179,7 +180,7 @@ export function CartProvider({ children }: PropsWithChildren) {
 
       const result = await createOrder({
         clientId: user.id,
-        clientName: user.username,
+        clientName: user.fullName || user.username,
         address: normalizedAddress,
         deliveryLocation: payload.deliveryLocation,
         total: computedTotal,
@@ -230,3 +231,4 @@ export function useCart() {
   }
   return context;
 }
+

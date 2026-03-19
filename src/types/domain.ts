@@ -1,6 +1,6 @@
 export type UserRole = 'CLIENT' | 'ADMIN' | 'DRIVER';
-export type PaymentMethod = 'TARJETA' | 'EFECTIVO' | 'TRANSFERENCIA';
-export type PaymentStatus = 'PENDIENTE_PAGO' | 'PAGADO_SIMULADO' | 'RECHAZADO';
+export type PaymentMethod = 'TARJETA' | 'TERMINAL' | 'EFECTIVO' | 'TRANSFERENCIA';
+export type PaymentStatus = 'PENDIENTE_PAGO' | 'PAGADO_ENTREGA' | 'PAGADO_SIMULADO' | 'RECHAZADO';
 export type DeliveryRecipientRelation = 'CLIENTE' | 'ENCARGADO' | 'FAMILIAR' | 'PORTERIA' | 'OTRO';
 export type AddressValidationProvider = 'GOOGLE' | 'MANUAL';
 
@@ -58,6 +58,7 @@ export type Order = {
   id: string;
   clientId: string;
   clientName: string;
+  clientPhone?: string;
   address: string;
   notes?: string;
   status: OrderStatus;

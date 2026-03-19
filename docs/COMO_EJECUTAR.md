@@ -26,6 +26,7 @@ Desde la carpeta `backend/` crea `backend/.env` con base en `backend/.env.exampl
 ```env
 EL_REY_SECRET_KEY=change-this-secret
 EL_REY_TOKEN_EXPIRE_HOURS=24
+EL_REY_ENABLE_DEMO_RESET=true
 EL_REY_MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<db>?retryWrites=true&w=majority
 EL_REY_MONGODB_DB=el_rey_deliveries
 EL_REY_MONGODB_PREFIX=

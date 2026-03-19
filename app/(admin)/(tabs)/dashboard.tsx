@@ -98,7 +98,9 @@ export default function AdminDashboardScreen() {
     .reduce((acc, item) => acc + item.total, 0);
   const activeUsers = users.filter((item) => item.isActive).length;
   const failedLogins = auditLog.filter((item) => item.action === 'LOGIN_FAILED').length;
-  const paidOrders = orders.filter((order) => order.paymentStatus === 'PAGADO_SIMULADO').length;
+  const paidOrders = orders.filter(
+    (order) => order.paymentStatus === 'PAGADO_ENTREGA' || order.paymentStatus === 'PAGADO_SIMULADO',
+  ).length;
   const pendingPayments = orders.filter((order) => order.paymentStatus === 'PENDIENTE_PAGO').length;
   const stockAlerts = useMemo(
     () => buildStockAlerts({ products, orders, lookbackDays: 21, lowStockThreshold: 6 }),
@@ -430,14 +432,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
+    flexWrap: 'wrap',
   },
   inlineLinkButton: {
+    marginLeft: 'auto',
+    maxWidth: '100%',
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: radius.pill,
@@ -449,6 +455,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '700',
+    flexShrink: 1,
   },
   summaryRow: {
     flexDirection: 'row',

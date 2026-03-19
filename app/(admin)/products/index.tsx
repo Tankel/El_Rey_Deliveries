@@ -345,7 +345,10 @@ export default function AdminProductsScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{editingId ? 'Editar producto' : 'Agregar producto'}</Text>
 
-            <Text style={styles.fieldLabel}>Nombre</Text>
+            <Text style={styles.fieldLabel}>
+              Nombre
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.name}
               onChangeText={(value) => setForm((prev) => ({ ...prev, name: value }))}
@@ -354,7 +357,10 @@ export default function AdminProductsScreen() {
               style={styles.input}
             />
 
-            <Text style={styles.fieldLabel}>Marca</Text>
+            <Text style={styles.fieldLabel}>
+              Marca
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.brand}
               onChangeText={(value) => setForm((prev) => ({ ...prev, brand: value }))}
@@ -363,7 +369,10 @@ export default function AdminProductsScreen() {
               style={styles.input}
             />
 
-            <Text style={styles.fieldLabel}>Imagen del producto</Text>
+            <Text style={styles.fieldLabel}>
+              Imagen del producto
+              <Text style={styles.required}> *</Text>
+            </Text>
             <View style={styles.imageBox}>
               {form.image ? (
                 <Image source={{ uri: form.image }} style={styles.imagePreview} resizeMode="cover" />
@@ -387,7 +396,10 @@ export default function AdminProductsScreen() {
               </View>
             </View>
 
-            <Text style={styles.fieldLabel}>Precio / Precio original / Stock</Text>
+            <Text style={styles.fieldLabel}>
+              Precio / Precio original / Stock
+              <Text style={styles.required}> *</Text>
+            </Text>
             <View style={styles.row}>
               <TextInput
                 value={form.price}
@@ -415,7 +427,10 @@ export default function AdminProductsScreen() {
               />
             </View>
 
-            <Text style={styles.formLabel}>Categoria</Text>
+            <Text style={styles.formLabel}>
+              Categoria
+              <Text style={styles.required}> *</Text>
+            </Text>
             <View style={styles.chipsWrap}>
               {CATEGORIES.map((category) => {
                 const selected = category === form.category;
@@ -431,7 +446,10 @@ export default function AdminProductsScreen() {
               })}
             </View>
 
-            <Text style={styles.formLabel}>Unidad</Text>
+            <Text style={styles.formLabel}>
+              Unidad
+              <Text style={styles.required}> *</Text>
+            </Text>
             <View style={styles.chipsWrap}>
               {UNITS.map((unit) => {
                 const selected = unit === form.unit;
@@ -447,7 +465,10 @@ export default function AdminProductsScreen() {
               })}
             </View>
 
-            <Text style={styles.fieldLabel}>Piezas por pack / Tamano</Text>
+            <Text style={styles.fieldLabel}>
+              Piezas por pack / Tamano
+              <Text style={styles.required}> *</Text>
+            </Text>
             <View style={styles.row}>
               <TextInput
                 value={form.quantityPerPack}
@@ -467,7 +488,10 @@ export default function AdminProductsScreen() {
               />
             </View>
 
-            <Text style={styles.formLabel}>Tipo de contenedor</Text>
+            <Text style={styles.formLabel}>
+              Tipo de contenedor
+              <Text style={styles.required}> *</Text>
+            </Text>
             <View style={styles.chipsWrap}>
               {containerOptions.map((option) => {
                 const selected = option === form.containerType;
@@ -495,7 +519,10 @@ export default function AdminProductsScreen() {
               </Pressable>
             </View>
 
-            <Text style={styles.formLabel}>Empaque</Text>
+            <Text style={styles.formLabel}>
+              Empaque
+              <Text style={styles.required}> *</Text>
+            </Text>
             <View style={styles.chipsWrap}>
               {packagingSelectOptions.map((option) => {
                 const selected = option === form.packaging;
@@ -523,7 +550,10 @@ export default function AdminProductsScreen() {
               </Pressable>
             </View>
 
-            <Text style={styles.fieldLabel}>Vendedor</Text>
+            <Text style={styles.fieldLabel}>
+              Vendedor
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.seller}
               onChangeText={(value) => setForm((prev) => ({ ...prev, seller: value }))}
@@ -532,7 +562,10 @@ export default function AdminProductsScreen() {
               style={styles.input}
             />
 
-            <Text style={styles.fieldLabel}>Descripcion</Text>
+            <Text style={styles.fieldLabel}>
+              Descripcion
+              <Text style={styles.required}> *</Text>
+            </Text>
             <TextInput
               value={form.description}
               onChangeText={(value) => setForm((prev) => ({ ...prev, description: value }))}
@@ -729,6 +762,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: typography.caption,
     marginTop: 2,
+  },
+  required: {
+    color: colors.danger,
   },
   input: {
     borderWidth: 1,

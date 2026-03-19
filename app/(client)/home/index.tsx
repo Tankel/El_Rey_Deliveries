@@ -191,7 +191,7 @@ export default function ClientHomeScreen() {
                     {suggestion.productName}
                   </Text>
                   <Text style={styles.reorderCardMeta}>
-                    {suggestion.reason} - {suggestion.confidence}%
+                    {suggestion.reason}
                   </Text>
                   <Text style={styles.reorderCardMeta}>Sugerido: {suggestion.suggestedQuantity}</Text>
                   <Pressable

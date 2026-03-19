@@ -5,8 +5,8 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel, EmailStr, Field
 
 UserRole = Literal['CLIENT', 'ADMIN', 'DRIVER']
-PaymentMethod = Literal['TARJETA', 'EFECTIVO', 'TRANSFERENCIA']
-PaymentStatus = Literal['PENDIENTE_PAGO', 'PAGADO_SIMULADO', 'RECHAZADO']
+PaymentMethod = Literal['TARJETA', 'TERMINAL', 'EFECTIVO', 'TRANSFERENCIA']
+PaymentStatus = Literal['PENDIENTE_PAGO', 'PAGADO_ENTREGA', 'PAGADO_SIMULADO', 'RECHAZADO']
 OrderStatus = Literal[
     'PENDIENTE',
     'CONFIRMADO',
@@ -164,6 +164,7 @@ class Order(BaseModel):
     id: str
     clientId: str
     clientName: str
+    clientPhone: Optional[str] = None
     address: str
     notes: Optional[str] = None
     status: OrderStatus
@@ -185,6 +186,7 @@ class Order(BaseModel):
 class CreateOrderPayload(BaseModel):
     clientId: str
     clientName: str
+    clientPhone: Optional[str] = None
     address: str
     deliveryLocation: Optional[DeliveryLocation] = None
     total: float
