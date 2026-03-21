@@ -15,7 +15,7 @@ describe('authRules', () => {
   it('valida password requerido', () => {
     const result = validateSignInInput({ username: 'cliente-demo', password: '   ' });
     expect(result.ok).toBe(false);
-    expect(result.message).toBe('Ingresa contrasena.');
+    expect(result.message).toBe('Ingresa contraseña.');
   });
 
   it('acepta payload valido', () => {

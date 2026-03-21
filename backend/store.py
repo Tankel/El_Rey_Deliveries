@@ -7,7 +7,7 @@ from threading import RLock
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from passlib.context import CryptContext
+import bcrypt
 
 from repository import MongoStateRepository
 from schemas import (
@@ -30,8 +30,6 @@ from schemas import (
     UpdateOrderStatusPayload,
 )
 
-pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
-
 ORDER_ALLOWED_TRANSITIONS = {
     'PENDIENTE': ['CONFIRMADO', 'CANCELADO'],
     'CONFIRMADO': ['EN_PREPARACION', 'CANCELADO'],
@@ -46,6 +44,31 @@ ORDER_ALLOWED_TRANSITIONS = {
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def is_bcrypt_hash(value: str) -> bool:
+    return isinstance(value, str) and value.startswith(('$2a$', '$2b$', '$2y$'))
+
+
+def hash_password(raw_password: str) -> str:
+    return bcrypt.hashpw(raw_password.strip().encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def verify_password(raw_password: str, password_hash: str) -> bool:
+    if not isinstance(raw_password, str) or not isinstance(password_hash, str):
+        return False
+
+    normalized_hash = password_hash.strip()
+    if not normalized_hash:
+        return False
+
+    if not is_bcrypt_hash(normalized_hash):
+        return raw_password == normalized_hash
+
+    try:
+        return bcrypt.checkpw(raw_password.encode('utf-8'), normalized_hash.encode('utf-8'))
+    except ValueError:
+        return False
 
 
 def build_default_profile(user: dict) -> AccountProfile:
@@ -152,7 +175,7 @@ class AppStore:
             {
                 'id': 'admin-demo',
                 'username': 'admin-demo',
-                'passwordHash': pwd_context.hash('admin123'),
+                'passwordHash': hash_password('admin123'),
                 'fullName': 'Administrador Demo',
                 'email': 'admin@elrey.local',
                 'phone': '+52 555 000 0001',
@@ -163,7 +186,7 @@ class AppStore:
             {
                 'id': 'cliente-demo',
                 'username': 'cliente-demo',
-                'passwordHash': pwd_context.hash('cliente123'),
+                'passwordHash': hash_password('cliente123'),
                 'fullName': 'Cliente Demo',
                 'email': 'cliente@elrey.local',
                 'phone': '+52 555 000 0002',
@@ -174,7 +197,7 @@ class AppStore:
             {
                 'id': 'driver-juan',
                 'username': 'driver-juan',
-                'passwordHash': pwd_context.hash('driver123'),
+                'passwordHash': hash_password('driver123'),
                 'fullName': 'Juan Perez',
                 'email': 'driver-juan@elrey.local',
                 'phone': '+52 555 000 0003',
@@ -185,7 +208,7 @@ class AppStore:
             {
                 'id': 'driver-marta',
                 'username': 'driver-marta',
-                'passwordHash': pwd_context.hash('driver123'),
+                'passwordHash': hash_password('driver123'),
                 'fullName': 'Marta Diaz',
                 'email': 'driver-marta@elrey.local',
                 'phone': '+52 555 000 0004',
@@ -284,7 +307,19 @@ class AppStore:
         return next((item for item in self.users if item['id'] == user_id), None)
 
     def verify_user_password(self, raw_password: str, password_hash: str) -> bool:
-        return pwd_context.verify(raw_password, password_hash)
+        return verify_password(raw_password, password_hash)
+
+    def user_password_needs_migration(self, password_hash: str) -> bool:
+        return not is_bcrypt_hash(password_hash)
+
+    def migrate_user_password(self, user_id: str, raw_password: str) -> None:
+        with self._lock:
+            target = self.get_user_by_id(user_id)
+            if not target:
+                return
+
+            target['passwordHash'] = hash_password(raw_password)
+            self._persist_state()
 
     def list_public_users(self) -> List[dict]:
         return [self._user_public(item) for item in self.users]
@@ -294,7 +329,7 @@ class AppStore:
             username = payload.username.strip().lower()
             if any(item['username'] == username for item in self.users):
                 raise ValueError('Ese username ya existe.')
-            password_hash = pwd_context.hash(payload.password.strip())
+            password_hash = hash_password(payload.password)
             user = self._make_user({
                 'username': username,
                 'passwordHash': password_hash,
@@ -324,8 +359,8 @@ class AppStore:
 
             if payload.password and payload.password.strip():
                 if len(payload.password.strip()) < 6:
-                    raise ValueError('La contrasena debe tener al menos 6 caracteres.')
-                target['passwordHash'] = pwd_context.hash(payload.password.strip())
+                    raise ValueError('La contraseña debe tener al menos 6 caracteres.')
+                target['passwordHash'] = hash_password(payload.password)
 
             if payload.fullName is not None:
                 target['fullName'] = payload.fullName.strip()

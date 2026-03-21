@@ -224,7 +224,7 @@ export default function AdminUsersScreen() {
             />
 
             <Text style={styles.fieldLabel}>
-              {editingId ? 'Nueva contrasena (opcional)' : 'Contrasena'}
+              {editingId ? 'Nueva contraseña (opcional)' : 'Contraseña'}
               {editingId ? null : <Text style={styles.required}> *</Text>}
             </Text>
             <TextInput

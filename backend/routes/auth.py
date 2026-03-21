@@ -18,15 +18,19 @@ def login(payload: LoginRequest):
 
     if not user:
         store.append_audit('LOGIN_FAILED', username, 'Usuario no encontrado.')
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Usuario o contrasena incorrectos.')
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Usuario o contraseña incorrectos.')
 
     if not user.get('isActive'):
         store.append_audit('LOGIN_FAILED', username, 'Usuario inactivo.', user.get('role'))
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Tu usuario esta inactivo.')
 
     if not store.verify_user_password(payload.password, user['passwordHash']):
-        store.append_audit('LOGIN_FAILED', username, 'Contrasena incorrecta.', user.get('role'))
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Usuario o contrasena incorrectos.')
+        store.append_audit('LOGIN_FAILED', username, 'Contraseña incorrecta.', user.get('role'))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Usuario o contraseña incorrectos.')
+
+    if store.user_password_needs_migration(user['passwordHash']):
+        store.migrate_user_password(user['id'], payload.password)
+        user = store.get_user_by_id(user['id']) or user
 
     token = build_token({'user_id': user['id'], 'role': user['role']})
     store.append_audit('LOGIN_SUCCESS', username, 'Inicio de sesion exitoso.', user.get('role'))

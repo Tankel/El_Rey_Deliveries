@@ -109,7 +109,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return { ok: false, message: 'Ingresa usuario.' };
         }
         if (!payload.password.trim()) {
-          return { ok: false, message: 'Ingresa contrasena.' };
+          return { ok: false, message: 'Ingresa contraseña.' };
         }
 
         try {

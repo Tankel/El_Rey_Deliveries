@@ -17,7 +17,7 @@ export function validateSignInInput(input: SignInInput): ValidationResult {
     return { ok: false, message: 'Ingresa usuario.' };
   }
   if (!input.password.trim()) {
-    return { ok: false, message: 'Ingresa contrasena.' };
+    return { ok: false, message: 'Ingresa contraseña.' };
   }
   return { ok: true, message: 'ok' };
 }

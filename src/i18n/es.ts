@@ -43,7 +43,7 @@ export const es = {
     updated: (status: OrderStatus) => `Estado actualizado a ${status}.`,
   },
   auth: {
-    recoverPassword: 'Recuperar contrasena',
+    recoverPassword: 'Recuperar contraseña',
   },
   dashboard: {
     title: 'Panel',
